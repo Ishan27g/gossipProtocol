@@ -13,9 +13,15 @@ const (
 	MaxNodesInView    = 2               // max peers kept in local view TODO MaxNodesInView=6
 	FanOut            = 2               // num of peers to gossip a message to
 )
-
+/*
+	refactor to get info from raft : leader sends back a subset of all peers (during heartbeat?)
+*/
 var minPeers = []string{"localhost:1101", "localhost:1102", "localhost:1103"}//, "localhost:1104"}//, "localhost:1105",
 // "localhost:1106"}//, "localhost:1107", "localhost:1108", "localhost:1109", "localhost:1110"}
+
+/*
+	https://flopezluis.github.io/gossip-simulator/
+ */
 var numRounds = func() int {
 	return int(math.Ceil(math.Log10(float64(len(minPeers))) / math.Log10(FanOut)))
 }

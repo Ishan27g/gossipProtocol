@@ -1,3 +1,27 @@
+
+Gossip protocol to replicate - something
+
+- a peer receives a command/log to gossip
+- selects N peers and transmits this message for M rounds (https://flopezluis.github.io/gossip-simulator/) 
+- various strategies for maintaining a partial view of network
+
+With raft
+
+1. Use raft to receive subset of network from leader. (tempUtils.go) 
+2. When gossiping a message 
+-> inform leader
+   - each peer can that receives a new gossip message additionally sends a `new-command` to the leader
+   - when leader receives majority for a `new-command`, it updates local snapshot (propagated every time with heartbeat, followers can make sure that eventually their local snapshot is consistent with received snapshot)
+-> save to local snapshot
+   - Snapshot : time ordered logs / DB commands / anything to replicate
+   - failed peers/new peers will join raft-nw, become followers, receive the latest snapshot from leader.
+   - If snapshot saves DB-commands, new peer can execute commands in order and become consistent 
+
+```shell
+cd sandbox/
+make RunVendorClean
+```
+
 ```go
 package main
 
