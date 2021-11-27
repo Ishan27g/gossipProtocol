@@ -1,12 +1,15 @@
 package gossip
+
 /**
-	Peer Sampling Service based on http://lpdwww.epfl.ch/upload/documents/publications/neg--1184036295all.pdf
+Peer Sampling Service based on http://lpdwww.epfl.ch/upload/documents/publications/neg--1184036295all.pdf
 */
 import (
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
+
+	reg "github.com/Ishan27gOrg/registry/package"
 
 	"github.com/Ishan27g/go-utils/mLogger"
 	sll "github.com/emirpasic/gods/lists/singlylinkedlist"
@@ -68,7 +71,7 @@ func (p *pSampling) getPeer() string {
 	return node.(nodeDescriptor).address
 }
 
-func initPeerSampling(st PeerSamplingStrategy) PeerSampling {
+func initPeerSampling(st PeerSamplingStrategy, peers reg.PeerResponse) PeerSampling {
 	ps := &pSampling{
 		logger:   mLogger.Get("peer-sampling"),
 		wait:     ViewExchangeDelay,
@@ -82,10 +85,9 @@ func initPeerSampling(st PeerSamplingStrategy) PeerSampling {
 		},
 		receivedView: make(chan passiveView),
 	}
-	possiblePeers := NetworkPeers()
-	for _, peer := range possiblePeers {
+	for _, peer := range peers {
 		ps.view.nodes.Add(nodeDescriptor{
-			address: peer,
+			address: peer.Address,
 			hop:     0,
 		})
 	}
@@ -197,15 +199,15 @@ func (p *pSampling) selectPeer() string {
 func (p *pSampling) selectView(view *view) {
 	// remove self if present in view
 	/*
-	if i := view.nodes.IndexOf(p.selfDescriptor); i != 1{
-		view.nodes.Remove(i)
-	}
-	if exists, _ := view.checkExists(p.selfDescriptor.address); exists{
 		if i := view.nodes.IndexOf(p.selfDescriptor); i != 1{
 			view.nodes.Remove(i)
 		}
-	}
-	 */
+		if exists, _ := view.checkExists(p.selfDescriptor.address); exists{
+			if i := view.nodes.IndexOf(p.selfDescriptor); i != 1{
+				view.nodes.Remove(i)
+			}
+		}
+	*/
 	switch p.strategy.ViewSelectionStrategy {
 	case Random: // select random MaxNodesInView nodes
 		view.randomView()

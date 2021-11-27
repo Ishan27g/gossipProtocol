@@ -3,12 +3,15 @@ package gossip
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/Ishan27gOrg/vClock"
 )
 
 type gossipMessage struct {
 	Data              string
 	CreatedAt         time.Time
 	GossipMessageHash string
+	vClock            vClock.EventClock
 }
 
 func gossipToByte(g gossipMessage) []byte {
@@ -20,6 +23,7 @@ func byteToGossip(b []byte) gossipMessage {
 		Data:              "",
 		CreatedAt:         time.Time{},
 		GossipMessageHash: "",
+		vClock:            make(vClock.EventClock),
 	}
 	g.GossipMessageHash = hash(g)
 	_ = json.Unmarshal(b, &g)
@@ -27,11 +31,12 @@ func byteToGossip(b []byte) gossipMessage {
 }
 
 // newGossipMessage creates a Gossip message
-func newGossipMessage(data string) gossipMessage {
+func newGossipMessage(data string, vClock vClock.EventClock) gossipMessage {
 	g := gossipMessage{
 		Data:              data,
 		CreatedAt:         time.Now().UTC(),
 		GossipMessageHash: "",
+		vClock:            vClock,
 	}
 	g.GossipMessageHash = hash(g)
 	return g

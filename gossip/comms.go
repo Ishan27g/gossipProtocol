@@ -6,6 +6,8 @@ import (
 	"strconv"
 
 	"github.com/Ishan27g/go-utils/mLogger"
+	reg "github.com/Ishan27gOrg/registry/package"
+	"github.com/Ishan27gOrg/vClock"
 	"github.com/caarlos0/env/v6"
 	"github.com/hashicorp/go-hclog"
 )
@@ -14,10 +16,12 @@ type EnvCfg struct {
 	envCfg     envConfig
 	logger     hclog.Logger
 	ps         PeerSampling
-	gossipChan chan []byte
+	gossipChan chan map[string]gossipMessage // fromPeer : gossipMessage
 }
 
 type envConfig struct {
+	Registry string `env:"Registry"`
+	ZoneId   int    `env:"ZoneId"`
 	Hostname string `env:"HOST_NAME"`
 	UdpPort  string `env:"UDP_PORT,required"`
 }
@@ -32,7 +36,7 @@ func Config() Gossip {
 
 // ConfigWithStrategy gossip protocol with the provided PeerSamplingStrategy.
 func ConfigWithStrategy(st *PeerSamplingStrategy) Gossip {
-	gossipChan := make(chan []byte)
+	gossipChan := make(chan map[string]gossipMessage)
 	envCfg := envConfig{}
 	if err := env.Parse(&envCfg); err != nil {
 		mLogger.Get("env").Error(err.Error())
@@ -44,10 +48,19 @@ func ConfigWithStrategy(st *PeerSamplingStrategy) Gossip {
 		ps:         nil,
 		gossipChan: gossipChan,
 	}
-	Env.ps = initPeerSampling(*st)
+
 	go udpServer(envCfg.UdpPort)
 
-	return ListenForGossip(Env.gossipChan)
+	// no use once register, as peers will exchange view with each other
+	registryClient := reg.RegistryClient(Env.envCfg.Registry)
+
+	self := "http://" + Env.envCfg.Hostname + Env.envCfg.UdpPort
+	zonePeers := registryClient.Register(Env.envCfg.ZoneId, self, nil)
+
+	Env.ps = initPeerSampling(*st, zonePeers)
+
+	vClock := vClock.Init(self, zonePeers.GetPeerAddr(self))
+	return ListenForGossip(Env.gossipChan, vClock)
 
 }
 
@@ -127,7 +140,7 @@ func udpSendGossip(address string, data []byte) []byte {
 	return buffer
 }
 
-// udpServer listens for an incoming view from a peer. Responds with the current view as per strategy
+// udpServer listens for an incoming view/gossip from a peer. Responds with the current view as per strategy
 func udpServer(port string) {
 	s, err := net.ResolveUDPAddr("udp4", ":"+port)
 	if err != nil {
@@ -162,8 +175,12 @@ func udpServer(port string) {
 				Env.logger.Debug("Server sent view response to: " + addr.String())
 			}
 		} else {
-			Env.logger.Error(err.Error())
-			Env.gossipChan <- buffer
+			gsp := byteToGossip(buffer)
+			from := addr.String()
+			gs := make(map[string]gossipMessage)
+			gs[from] = gsp
+			Env.gossipChan <- gs
+
 			receivedGossip := string(buffer)
 			Env.logger.Debug("Server received gossip " + receivedGossip + " from: " + addr.String())
 			_, err = connection.WriteToUDP([]byte("sneaky"), addr)
