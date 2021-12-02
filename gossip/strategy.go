@@ -22,3 +22,4 @@ type PeerSamplingStrategy struct {
 	ViewPropagationStrategy int
 	ViewSelectionStrategy   int
 }
+

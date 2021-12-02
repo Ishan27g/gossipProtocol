@@ -1,9 +1,11 @@
 package gossip
+
 /*
-	Partial view & strategies based on http://lpdwww.epfl.ch/upload/documents/publications/neg--1184036295all.pdf
+	Partial View & strategies based on http://lpdwww.epfl.ch/upload/documents/publications/neg--1184036295all.pdf
 */
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -15,213 +17,223 @@ import (
 	"github.com/emirpasic/gods/utils"
 )
 
-const LogName = "view"
+const LogName = "View"
 
-// view of at max MaxNodesInView nodes in the network
+// View of at max MaxNodesInView nodes in the network
 // updated during selectView()
-type view struct {
-	nodes *sll.List
+type View struct {
+	Nodes *sll.List
 }
 
-// increaseHopCount for each node in the view
-func increaseHopCount(v *view) {
+type NodeDescriptor struct {
+	Address string
+	Hop     int
+}
+
+// increaseHopCount for each node in the View
+func increaseHopCount(v *View) {
 	nodes := sll.New()
-	for it := v.nodes.Iterator(); it.Next(); {
-		n1 := it.Value().(nodeDescriptor)
-		n1.hop++
+	for it := v.Nodes.Iterator(); it.Next(); {
+		n1 := it.Value().(NodeDescriptor)
+		n1.Hop++
 		nodes.Add(n1)
 	}
-	v.nodes.Clear()
-	v.nodes = nodes
+	v.Nodes.Clear()
+	v.Nodes = nodes
 	v.sortNodes()
 }
 
-// checkExists checks whether the address exists in the view
-func (v *view) checkExists(address string) (bool, int) {
-	for it := v.nodes.Iterator(); it.Next(); {
-		n1 := it.Value().(nodeDescriptor)
-		if n1.address == address {
-			return true, n1.hop
+// checkExists checks whether the address exists in the View
+func (v *View) checkExists(address string) (bool, int) {
+	for it := v.Nodes.Iterator(); it.Next(); {
+		n1 := it.Value().(NodeDescriptor)
+		if n1.Address == address {
+			return true, n1.Hop
 		}
 	}
 	return false, -1
 }
-// mergeView view2 into view 1, discarding duplicate nodes with higher hop count
-func mergeViewExcludeNode(view1, view2 view, n nodeDescriptor) view {
-	return mergeMaps(toMap(view1, n.address), toMap(view2, n.address))
+
+// mergeView view2 into View 1, discarding duplicate nodes with higher hop count
+func mergeViewExcludeNode(view1, view2 View, n NodeDescriptor) View {
+	return mergeMaps(toMap(view1, n.Address), toMap(view2, n.Address))
 }
 
-// mergeView view2 into view 1, discarding duplicate nodes with higher hop count
-func mergeView(view1, view2 view) view {
-	merged := view{nodes: sll.New()}
+// mergeView view2 into View 1, discarding duplicate nodes with higher hop count
+func mergeView(view1, view2 View) View {
+	merged := View{Nodes: sll.New()}
 	// For duplicate nodes in v2map, merge with v1map with lower hop
 	merge(toMap(view1, ""), toMap(view2, ""), merged)
 	merged.sortNodes()
 	return merged
 }
 
-// mergeView view2 into view 1, discarding duplicate nodes with higher hop count
-func mergeMaps(v1map, v2map map[string]int) view {
-	merged := view{nodes: sll.New()}
+// mergeView view2 into View 1, discarding duplicate nodes with higher hop count
+func mergeMaps(v1map, v2map map[string]int) View {
+	merged := View{Nodes: sll.New()}
 	// For duplicate nodes in v2map, merge with v1map with lower hop
 	merge(v1map, v2map, merged)
 	merged.sortNodes()
 	return merged
 }
-func toMap(view1 view, excludeAddr string) map[string]int {
-	// convert view to hashmap
+func toMap(view1 View, excludeAddr string) map[string]int {
+	// convert View to hashmap
 	v1map := make(map[string]int) //address:hop
-	for it := view1.nodes.Iterator(); it.Next(); {
-		n1 := it.Value().(nodeDescriptor)
+	for it := view1.Nodes.Iterator(); it.Next(); {
+		n1 := it.Value().(NodeDescriptor)
 		if excludeAddr != "" {
-			if strings.Compare(excludeAddr, n1.address) != 0 {
-				v1map[n1.address] = n1.hop
+			if strings.Compare(excludeAddr, n1.Address) != 0 {
+				v1map[n1.Address] = n1.Hop
 			}
-		}else {
-			v1map[n1.address] = n1.hop
+		} else {
+			v1map[n1.Address] = n1.Hop
 		}
 	}
 	return v1map
 }
+
 // merge For duplicate nodes in `from`, merge the ones with lower hop
-func merge(into map[string]int, from map[string]int, merged view) {
+func merge(into map[string]int, from map[string]int, merged View) {
 	for address, hop := range into {
 		if from[address] > hop {
-			merged.nodes.Add(nodeDescriptor{
-				address: address,
-				hop:     hop, // lower hop
+			merged.Nodes.Add(NodeDescriptor{
+				Address: address,
+				Hop:     hop, // lower hop
 			})
 		} else {
-			merged.nodes.Add(nodeDescriptor{
-				address: address,
-				hop:     from[address], // lower hop
+			merged.Nodes.Add(NodeDescriptor{
+				Address: address,
+				Hop:     from[address], // lower hop
 			})
 		}
 	}
 }
-func (v *view) sortByAddr() {
+func (v *View) sortByAddr() {
 	c := utils.Comparator(func(a, b interface{}) int {
-		n1 := a.(nodeDescriptor)
-		n2 := b.(nodeDescriptor)
-		return strings.Compare(n1.address, n2.address)
+		n1 := a.(NodeDescriptor)
+		n2 := b.(NodeDescriptor)
+		return strings.Compare(n1.Address, n2.Address)
 	})
-	sortedNodes := containers.GetSortedValues(v.nodes, c)
-	v.nodes.Clear()
+	sortedNodes := containers.GetSortedValues(v.Nodes, c)
+	v.Nodes.Clear()
 	for _, va := range sortedNodes {
-		n := va.(nodeDescriptor)
-		v.nodes.Add(n)
+		n := va.(NodeDescriptor)
+		v.Nodes.Add(n)
 	}
 }
 
 // sortNodes according to increasing hop count
-func (v *view) sortNodes() {
+func (v *View) sortNodes() {
 	c := utils.Comparator(func(a, b interface{}) int {
-		n1 := a.(nodeDescriptor)
-		n2 := b.(nodeDescriptor)
-		if n1.hop > n2.hop {
+		n1 := a.(NodeDescriptor)
+		n2 := b.(NodeDescriptor)
+		if n1.Hop > n2.Hop {
 			return 1
 		}
-		if n1.hop < n2.hop {
+		if n1.Hop < n2.Hop {
 			return -1
 		}
 		return 0
 	})
-	v.nodes.Sort(c)
+	v.Nodes.Sort(c)
 	v.sortByAddr()
 }
 
 // headNode returns the node with the lowest Hop count
-func (v *view) headNode() string {
-	node, _ := v.nodes.Get(0)
-	return node.(nodeDescriptor).address
+func (v *View) headNode() string {
+	node, _ := v.Nodes.Get(0)
+	return node.(NodeDescriptor).Address
 }
 
 // tailNode returns the node with the highest Hop count
-func (v *view) tailNode() string {
-	node, _ := v.nodes.Get(v.nodes.Size() - 1)
-	return node.(nodeDescriptor).address
+func (v *View) tailNode() string {
+	node, _ := v.Nodes.Get(v.Nodes.Size() - 1)
+	return node.(NodeDescriptor).Address
 }
 
 // randomNode returns a random node from the list
-func (v *view) randomNode() string {
+func (v *View) randomNode() string {
 	rand.Seed(time.Now().Unix())
-	node, _ := v.nodes.Get(rand.Intn(v.nodes.Size()))
-	return node.(nodeDescriptor).address
+	node, _ := v.Nodes.Get(rand.Intn(v.Nodes.Size()))
+	return node.(NodeDescriptor).Address
 }
 
-// randomView sets the current view as a random subset of current view
-func (v *view) randomView() {
+// randomView sets the current View as a random subset of current View
+func (v *View) RandomView() {
 	selection := sll.New()
 	for {
 		rand.Seed(time.Now().Unix())
-		node, _ := v.nodes.Get(rand.Intn(v.nodes.Size()))
+		node, _ := v.Nodes.Get(rand.Intn(v.Nodes.Size()))
 
 		if selection.IndexOf(node) == -1 {
-			// don't add self if present in view
-			//if strings.Compare(node.(nodeDescriptor).address, Env.envCfg.Hostname +":" + Env.envCfg.UdpPort) != 0{
-				selection.Add(node)
+			// don't add self if present in View
+			//if strings.Compare(node.(NodeDescriptor).address, Env.envCfg.Hostname +":" + Env.envCfg.UdpPort) != 0{
+			selection.Add(node)
 			// }
 		}
 		if selection.Size() == MaxNodesInView {
 			break
 		}
 	}
-	v.nodes.Clear()
-	v.nodes = selection
+	v.Nodes.Clear()
+	v.Nodes = selection
 	v.sortNodes()
 }
 
-// headView sets the current view as the subset of first MaxNodesInView nodes in the current view
-func (v *view) headView() {
+// headView sets the current View as the subset of first MaxNodesInView Nodes in the current View
+func (v *View) headView() {
 	selection := sll.New()
 	for i := 0; i < MaxNodesInView; i++ {
-		node, _ := v.nodes.Get(i)
+		node, _ := v.Nodes.Get(i)
 		selection.Add(node)
 	}
-	v.nodes.Clear()
-	v.nodes = selection
+	v.Nodes.Clear()
+	v.Nodes = selection
 	v.sortNodes()
 }
 
-// tailView sets the current view as the subset of last MaxNodesInView nodes in the current view
-func (v *view) tailView() {
+// tailView sets the current View as the subset of last MaxNodesInView Nodes in the current View
+func (v *View) tailView() {
 	selection := sll.New()
-	for i := v.nodes.Size() - 1; i >= v.nodes.Size()-MaxNodesInView; i-- {
-		node, _ := v.nodes.Get(i)
-		selection.Add(node.(nodeDescriptor))
+	for i := v.Nodes.Size() - 1; i >= v.Nodes.Size()-MaxNodesInView; i-- {
+		node, _ := v.Nodes.Get(i)
+		selection.Add(node.(NodeDescriptor))
 	}
-	v.nodes.Clear()
-	v.nodes = selection
+	v.Nodes.Clear()
+	v.Nodes = selection
 	v.sortNodes()
 }
 
-func viewToBytes(view view) []byte {
+func ViewToBytes(view View) []byte {
 	m := make(map[string]int)
-	for it := view.nodes.Iterator(); it.Next(); {
-		node := it.Value().(nodeDescriptor)
-		m[node.address] = node.hop
+	for it := view.Nodes.Iterator(); it.Next(); {
+		node := it.Value().(NodeDescriptor)
+		m[node.Address] = node.Hop
 	}
 	b, _ := json.Marshal(m)
 	return b
 }
-func bytesToView(bytes []byte) (view, error) {
+func BytesToView(bytes []byte) (View, error) {
+	if bytes == nil {
+		return View{}, errors.New("empty")
+	}
 	var m map[string]int
 	if err := json.Unmarshal(bytes, &m); err != nil {
 		fmt.Println("Unmarshal error" + err.Error())
-		return view{}, err
+		return View{}, err
 	}
-	v := view{nodes: sll.New()}
+	v := View{Nodes: sll.New()}
 	for addr, hop := range m {
-		v.nodes.Add(nodeDescriptor{address: addr, hop: hop})
+		v.Nodes.Add(NodeDescriptor{Address: addr, Hop: hop})
 	}
 	return v, nil
 }
-func printView(view view) string{
-	str := "view len - " + strconv.Itoa(view.nodes.Size())
-	//mLogger.Get(LogName).Info("view len - " + strconv.Itoa(view.nodes.Size()))
-	view.nodes.Each(func(_ int, value interface{}) {
-		n := value.(nodeDescriptor)
-		str += "\n" + n.address + "[" + strconv.Itoa(n.hop) + "]"
+func printView(view View) string {
+	str := "View len - " + strconv.Itoa(view.Nodes.Size())
+	//mLogger.Get(LogName).Info("View len - " + strconv.Itoa(View.nodes.Size()))
+	view.Nodes.Each(func(_ int, value interface{}) {
+		n := value.(NodeDescriptor)
+		str += "\n" + n.Address + "[" + strconv.Itoa(n.Hop) + "]"
 		// mLogger.Get(LogName).Info(n.address + "[" + strconv.Itoa(n.hop) + "]")
 	})
 	return str

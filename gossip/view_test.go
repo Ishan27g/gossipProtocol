@@ -8,15 +8,15 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func mockView(hop int) view {
+func mockView(hop int) View {
 	n := sll.New()
 	for i := 1; i <= 9; i++ {
-		n.Add(nodeDescriptor{
-			address: "120" + strconv.Itoa(i),
-			hop:     hop,
+		n.Add(NodeDescriptor{
+			Address: "120" + strconv.Itoa(i),
+			Hop:     hop,
 		})
 	}
-	return view{nodes: n}
+	return View{Nodes: n}
 }
 func TestMerge(t *testing.T) {
 
@@ -26,10 +26,10 @@ func TestMerge(t *testing.T) {
 
 	merged := mergeView(v1,v2)
 
-	assert.Equal(t, merged.nodes.Size(), v1.nodes.Size())
-	merged.nodes.Each(func(_ int, value interface{}) {
-		n := value.(nodeDescriptor)
-		assert.Equal(t, n.hop, lowerHop)
+	assert.Equal(t, merged.Nodes.Size(), v1.Nodes.Size())
+	merged.Nodes.Each(func(_ int, value interface{}) {
+		n := value.(NodeDescriptor)
+		assert.Equal(t, n.Hop, lowerHop)
 	})
 }
 
@@ -41,14 +41,14 @@ func TestViewNodes(t *testing.T) {
 }
 func TestRandomView(t *testing.T) {
 	v := mockView(0)
-	v.randomView()
+	v.RandomView()
 	assert.NotNil(t, v.randomNode())
-	assert.Equal(t, MaxNodesInView, v.nodes.Size())
+	assert.Equal(t, MaxNodesInView, v.Nodes.Size())
 }
 func TestHeadView(t *testing.T) {
 	v := mockView(0)
 	v.headView()
-	assert.Equal(t, MaxNodesInView, v.nodes.Size())
+	assert.Equal(t, MaxNodesInView, v.Nodes.Size())
 	assert.Equal(t, "1201", v.headNode())
 	assert.Equal(t, "1206", v.tailNode())
 	exists, hop := v.checkExists("1205")
@@ -59,7 +59,7 @@ func TestTailView(t *testing.T) {
 	v := mockView(0)
 	v.tailView()
 	v.sortByAddr()
-	assert.Equal(t, MaxNodesInView, v.nodes.Size())
+	assert.Equal(t, MaxNodesInView, v.Nodes.Size())
 	assert.Equal(t, "1204", v.headNode())
 	assert.Equal(t, "1209", v.tailNode())
 	exists, hop := v.checkExists("1205")
@@ -69,11 +69,11 @@ func TestTailView(t *testing.T) {
 
 func TestSerialization(t *testing.T) {
 	v := mockView(4)
-	bytes := viewToBytes(v)
-	v2, e := bytesToView(bytes)
+	bytes := ViewToBytes(v)
+	v2, e := BytesToView(bytes)
 	assert.NoError(t, e)
-	v2.nodes.Each(func(_ int, value interface{}) {
-		n := value.(nodeDescriptor)
-		assert.NotEqual(t, -1, v.nodes.IndexOf(n))
+	v2.Nodes.Each(func(_ int, value interface{}) {
+		n := value.(NodeDescriptor)
+		assert.NotEqual(t, -1, v.Nodes.IndexOf(n))
 	})
 }
