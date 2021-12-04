@@ -1,39 +1,35 @@
 package main
 
 import (
-	"os"
+	"fmt"
 
-	"github.com/Ishan27g/go-utils/mLogger"
 	"github.com/Ishan27gOrg/gossipProtocol/gossip"
 )
 
-func exampleCustomStrategy() {
-	if os.Getenv("HOST_NAME") == "" || os.Getenv("UDP_PORT") == "" {
-		os.Exit(1)
+func exampleCustomStrategy(hostname, udp string, zone int) {
+	g := gossip.Default(hostname, udp, zone) // zone 1
+
+	packetsReceivedFromPeers := make(chan map[string]string)
+	packetsSentByUser := make(chan gossip.Packet)
+	g.Join(network, packetsReceivedFromPeers, packetsSentByUser) // across zones
+	// g.StartRumour("")
+
+	for {
+		select {
+		case from, id := <-packetsReceivedFromPeers:
+			fmt.Println("received gossip ", id, " from  ", from)
+		case packet := <-packetsSentByUser:
+			fmt.Println("Sent gossip to network - ", packet.GossipMessage.GossipMessageHash, " data - ", packet.GossipMessage.Data)
+		}
 	}
-
-	processName := os.Getenv("ProcessName")
-	// set a global level to print gossip protocol logs
-	mLogger.New(processName, "debug")
-
-	// define a peer sampling strategy
-	strategy := gossip.PeerSamplingStrategy{
-		PeerSelectionStrategy:   gossip.Random, // Random, Head, Tail
-		ViewPropagationStrategy: gossip.Push,   // Push, Pull, PushPull
-		ViewSelectionStrategy:   gossip.Random, // Random, Head, Tail
-	}
-
-	// Initialise with provided strategy
-	_ = gossip.ConfigWithStrategy(&strategy)
-
-	// send a message to network
-	// g.StartRumour("message1")
-	// send another message to network
-	// g.StartRumour("message2")
-
-	<-make(chan bool)
 }
 
+var hostname = "http://localhost"
+var network = []string{"1001", "2102", "4103", "2003", "1000"}
+
 func main() {
-	exampleCustomStrategy()
+	for i := len(network) - 1; i >= 1; i-- {
+		go exampleCustomStrategy(hostname, network[i], i)
+	}
+	exampleCustomStrategy(hostname, network[0], 1)
 }

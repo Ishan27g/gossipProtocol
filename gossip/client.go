@@ -10,25 +10,26 @@ import (
 
 // Client is the UDP Client interface
 type Client interface {
-	// ExchangeView sends a view to this peer and returns the view of the peer
-	ExchangeView(address string, data []byte) []byte
-	// SendGossip sends the gossip message to FanOut number of peers
+	// exchangeView sends a view to this peer and returns the view of the peer
+	exchangeView(address string, data []byte) []byte
+	// sendGossip sends the gossip message to FanOut number of peers
 	// no return is expected (todo)
-	SendGossip(address string, data []byte) []byte
+	sendGossip(address string, data []byte) []byte
 }
+
 func GetClient() Client {
 	return &udpClient{
 		logger: mLogger.Get("udp-client"),
 	}
 }
+
 type udpClient struct {
 	logger hclog.Logger
 }
 
-
 // SendGossip sends the gossip message to FanOut number of peers
 // no return is expected (todo)
-func (u *udpClient) SendGossip(address string, data []byte) []byte {
+func (u *udpClient) sendGossip(address string, data []byte) []byte {
 	s, err := net.ResolveUDPAddr("udp4", address)
 	if err != nil {
 		u.logger.Error(err.Error())
@@ -63,7 +64,7 @@ func (u *udpClient) SendGossip(address string, data []byte) []byte {
 }
 
 // ExchangeView sends a view to this peer and returns the view of the peer
-func (u *udpClient) ExchangeView(address string, data []byte) []byte {
+func (u *udpClient) exchangeView(address string, data []byte) []byte {
 	s, err := net.ResolveUDPAddr("udp4", address)
 	if err != nil {
 		u.logger.Error(err.Error())

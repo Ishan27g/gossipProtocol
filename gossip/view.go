@@ -158,11 +158,11 @@ func (v *View) randomNode() string {
 	return node.(NodeDescriptor).Address
 }
 
-// randomView sets the current View as a random subset of current View
+// RandomView sets the current View as a random subset of current View
 func (v *View) RandomView() {
 	selection := sll.New()
+	rand.Seed(time.Now().Unix())
 	for {
-		rand.Seed(time.Now().Unix())
 		node, _ := v.Nodes.Get(rand.Intn(v.Nodes.Size()))
 
 		if selection.IndexOf(node) == -1 {

@@ -1,38 +1,46 @@
 package gossip
 
 import (
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
 
 	"github.com/Ishan27g/go-utils/mLogger"
-	reg "github.com/Ishan27gOrg/registry/package"
 	"github.com/hashicorp/go-hclog"
 )
 
 const RegistryUrl = "https://bootstrap-registry.herokuapp.com"
 
 type Gossip interface {
+	// Join starts the gossip protocol with these initial peers. Peer sampling is done to periodically
+	// maintain a partial view (subset) of the gossip network. Data is sent of the channel when gossip
+	// is received from a peer or from the user (StartRumour)
+	Join(peers []string, fromPeer chan<- map[string]string, fromUser chan<- Packet)
 	// StartRumour is the equivalent of receiving a gossip message from the user. This is sent to peers
 	StartRumour(data string)
+
+	AllGossip() map[string]*Packet
 }
 
 // StartRumour is the equivalent of receiving a gossip message from the user. This is gossiped to peers
 func (g *gossip) StartRumour(data string) {
-	g.startRumour(newGossipMessage(data, g.selfAddress()))
+	gP := newGossipMessage(data, g.selfAddress())
+	go g.startRumour(gP)
+	g.gossipFromUser <- gP
 }
 func (g *gossip) startRumour(gP Packet) bool {
 	newGossip := false
 	if g.receivedGossipMap[gP.GossipMessage.GossipMessageHash] == nil {
 		newGossip = true
-		g.logger.Debug("Received new gossip - " + gP.GossipMessage.GossipMessageHash + " from - " + gP.AvailableAt[0] + " gossiping....✅")
+		g.logger.Debug("Received new gossip - " + gP.GossipMessage.GossipMessageHash +
+			" from - " + gP.AvailableAt[0] + " gossiping....✅")
 		g.receivedGossipMap[gP.GossipMessage.GossipMessageHash] = &gP
 		go g.beginGossipRounds(gP.GossipMessage)
 	} else {
 		gPExisting := g.receivedGossipMap[gP.GossipMessage.GossipMessageHash]
 		gPExisting.AvailableAt = append(gPExisting.AvailableAt, gP.AvailableAt[0])
-		g.logger.Debug("Received existing gossip - " + gP.GossipMessage.GossipMessageHash + " adding new download address, not gossipping....❌")
+		g.logger.Debug("Received existing gossip - " + gP.GossipMessage.GossipMessageHash +
+			" adding new download address, not gossipping....❌")
 	}
 	return newGossip
 }
@@ -53,9 +61,9 @@ func (g *gossip) beginGossipRounds(gsp gossipMessage) {
 func (g *gossip) sendGossip(gm gossipMessage) {
 	gsp := make(chan []byte)
 	for i := 0; i < FanOut; i++ {
-		peer := g.peerSampling.GetPeer()
+		peer := g.peerSampling.getPeer()
 		g.logger.Debug("[Gossip " + gm.GossipMessageHash + " ] to peer - " + peer)
-		if gossipRsp := g.udp.SendGossip(peer, gossipToByte(gm, g.selfAddress())); gossipRsp != nil {
+		if gossipRsp := g.udp.sendGossip(peer, gossipToByte(gm, g.selfAddress())); gossipRsp != nil {
 			gsp <- gossipRsp
 		}
 	}
@@ -70,9 +78,12 @@ func (g *gossip) sendGossip(gm gossipMessage) {
 
 // gossipCb is called when the udp server receives a gossip message. This is sent by peers and gossiped to peers
 // todo not used -> gossip response
-// todo send to raft->leader if newGossip
-func (g *gossip) gossipCb(gossip Packet) []byte {
-	_ = g.startRumour(gossip)
+func (g *gossip) gossipCb(gossip Packet, from string) []byte {
+	if g.startRumour(gossip) { // if new id, send to raft -> mark as new receive event
+		g.gossipEventFromPeer <- map[string]string{
+			from: gossip.GossipMessage.GossipMessageHash,
+		}
+	}
 	return []byte("OKAY")
 }
 func (g *gossip) selfAddress() string {
@@ -81,58 +92,54 @@ func (g *gossip) selfAddress() string {
 }
 
 type gossip struct {
-	gossipChan        chan Packet        // gossip from user or udp server, to be sent to peers
-	receivedGossipMap map[string]*Packet // map of all gossip received
-	udp               Client             // udp client
-	env               EnvCfg             // env
+	env                 EnvCfg // env
+	udp                 Client // udp client
+	mutex               sync.Mutex
+	logger              hclog.Logger
+	peerSampling        Sampling
+	gossipFromUser      chan<- Packet            // gossip from user === (sendEvent)
+	gossipEventFromPeer chan<- map[string]string // gossip Id from peer === (receiveEvent)
+	receivedGossipMap   map[string]*Packet       // map of all gossip id & gossip data received
+}
 
-	mutex        sync.Mutex
-	logger       hclog.Logger
-	peerSampling Sampling
+func (g *gossip) AllGossip() map[string]*Packet {
+	return g.receivedGossipMap
 }
 
 type EnvCfg struct {
-	Hostname     string `env:"HOST_NAME"`
-	Zone         int    `env:"ZONE"`
-	UdpPort      string `env:"UDP_PORT,required"`
-	HttpFilePort string `env:"HTTP_PORT_FILE,required"` // todo data download endpoint
+	Hostname string `env:"HOST_NAME"`
+	Zone     int    `env:"ZONE"`
+	UdpPort  string `env:"UDP_PORT,required"`
 }
 
-func Default(env EnvCfg) Gossip {
+// Default returns the default gossip protocol interface after
+// sets up a default peer sampling strategy
+func Default(hostname, port string, zone int) Gossip {
 	g := gossip{
-		mutex:             sync.Mutex{},
-		logger:            mLogger.Get("gossip"),
+		mutex:  sync.Mutex{},
+		logger: mLogger.Get("gossip"),
+		udp:    nil,
+		env: EnvCfg{
+			Hostname: hostname,
+			Zone:     zone,
+			UdpPort:  port,
+		},
 		receivedGossipMap: make(map[string]*Packet),
-		udp:               nil,
-		env:               env,
 		peerSampling:      nil,
 	}
-
-	peers := RegisterAndGetZonePeers(g.env.Zone, g.selfAddress(), nil)
-	g.logger.Info(fmt.Sprintf("ZONE-PEERS -> %v", peers))
-
-	g.set(GetClient(), env, Init(DefaultStrategy(), g.selfAddress()))
+	g.peerSampling = InitPs(g.selfAddress())
+	g.peerSampling.setUdp(GetClient())
 	return &g
 }
 
-func (g *gossip) set(udp Client, env EnvCfg, ps Sampling) Gossip {
-	g.peerSampling = ps
-	g.env = env
-	g.udp = udp
-	g.peerSampling.setUdp(udp)
-
+// Join starts the gossip protocol with these initial peers. Peer sampling is done to periodically
+// maintain a partial view (subset) of the gossip network. Data is sent of the channel when gossip
+// is received from a peer or from the user (StartRumour)
+func (g *gossip) Join(peers []string, fromPeer chan<- map[string]string, fromUser chan<- Packet) {
+	g.gossipEventFromPeer = fromPeer
+	g.gossipFromUser = fromUser
 	// listen calls the udp server to start and registers callbacks for incoming gossip or views from peers
 	go Listen(g.env.UdpPort, g.gossipCb, g.peerSampling.ReceivedView)
 	// start peer sampling and exchange views
-	go g.peerSampling.Start()
-
-	return g
-}
-
-func RegisterAndGetZonePeers(zone int, address string, meta reg.MetaData) []string {
-	var raft_peers []string
-	for _, p := range reg.RegistryClient(RegistryUrl).Register(zone, address, meta) {
-		raft_peers = append(raft_peers, p.Address)
-	}
-	return raft_peers
+	go g.peerSampling.start(peers)
 }

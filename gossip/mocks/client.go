@@ -17,13 +17,13 @@ type mockUdpClient struct {
 
 // MockExchangeView mocks a random view response by the UDP server
 func (m *mockUdpClient) MockExchangeView(address string, v gossip.View) *gossip.View {
-	m.view.RandomView()
-	return &m.view
+	rsp, _ := gossip.BytesToView(MockServer(address).MockReceiveView(v, address)) // todo mockServer(address=port)
+	return &rsp
 }
 
 // MockSendGossip mocks a gossip response by the UDP server
 func (m *mockUdpClient) MockSendGossip(address string, data []byte) []byte {
-	return []byte("Ok")
+	return MockServer(address).MockReceiveGossip(gossip.ByteToPacket(data)) // todo mockServer(address=port)
 }
 
 // MockClient mock

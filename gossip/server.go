@@ -8,21 +8,21 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
-
 type Server struct {
-	logger hclog.Logger
-	address string
-	gossipCb func (Packet) []byte
-	viewCb func (View, string) []byte
+	logger   hclog.Logger
+	address  string
+	gossipCb func(Packet, string) []byte
+	viewCb   func(View, string) []byte
 }
+
 // Listen starts the udp server that listens for an incoming view or gossip from peers.
 // Responds with the current view / gossip as per strategy.
-func Listen(port string, gossipCb func(Packet) []byte, viewCb func(View, string) []byte ){
+func Listen(port string, gossipCb func(Packet, string) []byte, viewCb func(View, string) []byte) {
 	server := Server{
-		logger:      mLogger.Get("udp-server"),
-		address:     "",
+		logger:   mLogger.Get("udp-server"),
+		address:  "",
 		gossipCb: gossipCb,
-		viewCb: viewCb,
+		viewCb:   viewCb,
 	}
 	s, err := net.ResolveUDPAddr("udp4", ":"+port)
 	if err != nil {
@@ -41,7 +41,7 @@ func Listen(port string, gossipCb func(Packet) []byte, viewCb func(View, string)
 	buffer := make([]byte, 1024)
 
 	for {
-		readLen, addr, err := connection.ReadFromUDP(buffer)
+		readLen, addr, _ := connection.ReadFromUDP(buffer)
 		buffer = buffer[:readLen]
 		view, err := BytesToView(buffer)
 		if err == nil {
@@ -54,9 +54,9 @@ func Listen(port string, gossipCb func(Packet) []byte, viewCb func(View, string)
 			} else {
 				server.logger.Debug("Server sent view response to: " + addr.String())
 			}
-		}else {
+		} else {
 			server.logger.Debug("Server received gossip " + " from: " + addr.IP.String() + ":" + strconv.Itoa(addr.Port))
-			rsp := server.gossipCb(ByteToPacket(buffer))
+			rsp := server.gossipCb(ByteToPacket(buffer), addr.IP.String()+":"+strconv.Itoa(addr.Port))
 			_, err = connection.WriteToUDP(rsp, addr)
 			if err != nil {
 				server.logger.Error(err.Error())
@@ -67,4 +67,3 @@ func Listen(port string, gossipCb func(Packet) []byte, viewCb func(View, string)
 		}
 	}
 }
-

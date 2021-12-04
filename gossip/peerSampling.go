@@ -11,8 +11,8 @@ import (
 )
 
 type Sampling interface {
-	Start()
-	GetPeer() string
+	start(initialPeers []string)
+	getPeer() string
 	ReceivedView(view View, from string) []byte
 
 	setUdp(udp Client)
@@ -35,9 +35,9 @@ type peerSampling struct {
 	udp            Client
 }
 
-func (p *peerSampling) Start() {
+func (p *peerSampling) start(initialPeers []string) {
 	// fill view from possible peers
-	p.fillView(NetworkPeers(p.selfDescriptor.Address)...)
+	p.fillView(initialPeers...)
 	// select a subset of whole view
 	p.selectView(p.getView())
 	go p.active()
@@ -50,7 +50,7 @@ type passiveView struct {
 }
 
 // GetPeer returns a random peer from a partial view of the entire network
-func (p *peerSampling) GetPeer() string {
+func (p *peerSampling) getPeer() string {
 	rand.Seed(time.Now().Unix())
 	node, _ := p.view.Nodes.Get(rand.Intn(p.view.Nodes.Size()))
 	return node.(NodeDescriptor).Address
@@ -91,7 +91,7 @@ func (p *peerSampling) passive() {
 			// send mergedView to peer, receive Ok or view
 			p.logger.Debug("[PT]:PUSH : sending current view merged with self descriptor to peer - " + peer)
 			p.logger.Info(printView(mergedView))
-			rspView, err := BytesToView(p.udp.ExchangeView(peer, ViewToBytes(mergedView)))
+			rspView, err := BytesToView(p.udp.exchangeView(peer, ViewToBytes(mergedView)))
 			if err == nil {
 				receivedView := &rspView
 				p.logger.Debug("[PT]:PUSH : receivedView from peer - " + peer + receivedView.Nodes.String()) // []byte("OKAY")
@@ -100,7 +100,7 @@ func (p *peerSampling) passive() {
 		} else {
 			p.logger.Debug("[PT]:PULL/PUSH-PULL :sending empty view to peer - " + peer)
 			// send emptyView to peer to trigger response
-			rspView, err := BytesToView(p.udp.ExchangeView(peer, ViewToBytes(View{Nodes: sll.New()})))
+			rspView, err := BytesToView(p.udp.exchangeView(peer, ViewToBytes(View{Nodes: sll.New()})))
 			if err == nil {
 				receivedView := &rspView
 				p.logger.Debug("[PT]:PULL/PUSH-PULL : receivedView from peer - " + peer + receivedView.Nodes.String()) // []byte("OKAY")
@@ -140,7 +140,7 @@ func (p *peerSampling) active() {
 			mergedView := mergeView(p.view, selfDescriptor(p.selfDescriptor))
 			// send mergedView to peer, receive Ok or view
 			p.logger.Debug("[AT]:PULL : sending current view merged with self descriptor to peer - " + receivedView.fromPeer)
-			receivedView.view, _ = BytesToView(p.udp.ExchangeView(receivedView.fromPeer, ViewToBytes(mergedView)))
+			receivedView.view, _ = BytesToView(p.udp.exchangeView(receivedView.fromPeer, ViewToBytes(mergedView)))
 			p.logger.Debug("[AT]:PULL : response view from peer - " + receivedView.fromPeer)
 			//printView(receivedView.view)
 		}
@@ -206,11 +206,11 @@ func (p *peerSampling) setUdp(udp Client) {
 func selfDescriptor(n NodeDescriptor) View {
 	return View{Nodes: sll.New(n)}
 }
-func Init(strategy PeerSamplingStrategy, self string) Sampling {
+func InitPs(self string) Sampling {
 	ps := peerSampling{
 		logger:   mLogger.Get("peer-sampling"),
 		wait:     ViewExchangeDelay,
-		strategy: strategy,
+		strategy: DefaultStrategy(),
 		view: View{
 			Nodes: sll.New(),
 		},

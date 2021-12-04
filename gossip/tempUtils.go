@@ -10,11 +10,12 @@ import (
 )
 
 const (
-	ViewExchangeDelay = 1 * time.Second // timeout after which a View  is exchanged with a peer
-	RoundDelay        = 1 * time.Second // timeout between each round for a gossipMessage
-	MaxNodesInView    = 6               // max peers kept in local View TODO MaxNodesInView=6
+	ViewExchangeDelay = 3 * time.Second // timeout after which a View  is exchanged with a peer
+	RoundDelay        = 3 * time.Second // timeout between each round for a gossipMessage
+	MaxNodesInView    = 4               // max peers kept in local View TODO MaxNodesInView=6
 	FanOut            = 2               // num of peers to gossip a message to
 )
+
 /*
 	refactor to get info from raft : leader sends back a subset of all peers (during heartbeat?)
 */
@@ -31,11 +32,11 @@ func NetworkPeers(self string) []string {
 }
 
 var minPeers = []string{"localhost:1101", "localhost:1102", "localhost:1103", "localhost:1104", "localhost:1105",
- "localhost:1106", "localhost:1107", "localhost:1108", "localhost:1109", "localhost:1110"}
+	"localhost:1106", "localhost:1107", "localhost:1108", "localhost:1109", "localhost:1110"}
 
 /*
 	https://flopezluis.github.io/gossip-simulator/
- */
+*/
 var numRounds = func() int {
 	return int(math.Ceil(math.Log10(float64(len(minPeers))) / math.Log10(FanOut)))
 }
@@ -48,21 +49,21 @@ func hash(obj interface{}) string {
 
 type versions struct {
 	mutex sync.Mutex
-	v map[string]*versionAbleS
+	v     map[string]*versionAbleS
 }
 
 func (v *versions) GetVersion(id string) int {
 	vs := v.v[id]
-	if vs != nil{
+	if vs != nil {
 		return vs.version
 	}
 	return -1
 }
 
 func (v *versions) UpdateVersion(id string) {
-	if v.v[id] != nil{
+	if v.v[id] != nil {
 		v.v[id].version = v.v[id].version + 1
-	}else {
+	} else {
 		v.v[id] = &versionAbleS{
 			id:      id,
 			version: 1,
@@ -77,10 +78,11 @@ type versionAbleI interface {
 	UpdateVersion(id string)
 }
 type versionAbleS struct {
-	id string
+	id      string
 	version int
 }
-func NewVersions() versionAbleI{
+
+func NewVersions() versionAbleI {
 	return &versions{
 		mutex: sync.Mutex{},
 		v:     make(map[string]*versionAbleS),
