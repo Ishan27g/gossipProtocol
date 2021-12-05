@@ -19,7 +19,8 @@ func exampleCustomStrategy(hostname, udp string, zone int) {
 		case from, id := <-packetsReceivedFromPeers:
 			fmt.Println("received gossip ", id, " from  ", from)
 		case packet := <-packetsSentByUser:
-			fmt.Println("Sent gossip to network - ", packet.GossipMessage.GossipMessageHash, " data - ", packet.GossipMessage.Data)
+			fmt.Println("Sent gossip to network - ", packet.GossipMessage.GossipMessageHash,
+				" data - ", packet.GossipMessage.Data)
 		}
 	}
 }

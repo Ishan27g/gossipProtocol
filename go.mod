@@ -6,7 +6,6 @@ replace (
 	github.com/Ishan27gOrg/gossipProtocol => ../gossipProtocol
 	github.com/Ishan27gOrg/raftProtocol => ../raftProtocol
 	github.com/Ishan27gOrg/registry/package => ../registry/package
-	github.com/Ishan27gOrg/vClock => ../vClock
 )
 
 require (
@@ -15,7 +14,6 @@ require (
 	github.com/Ishan27gOrg/vClock v0.0.0-00010101000000-000000000000
 	github.com/emirpasic/gods v1.12.0
 	github.com/hashicorp/go-hclog v1.0.0
-	github.com/iancoleman/orderedmap v0.2.0
 	github.com/stretchr/testify v1.7.0
 )
 
@@ -29,3 +27,5 @@ require (
 	golang.org/x/sys v0.0.0-20191008105621-543471e840be // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c // indirect
 )
+
+replace github.com/Ishan27gOrg/vClock => ../vClock

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Ishan27g/go-utils/mLogger"
+	"github.com/Ishan27gOrg/vClock"
 	"github.com/hashicorp/go-hclog"
 )
 
@@ -15,20 +16,44 @@ type Gossip interface {
 	// Join starts the gossip protocol with these initial peers. Peer sampling is done to periodically
 	// maintain a partial view (subset) of the gossip network. Data is sent of the channel when gossip
 	// is received from a peer or from the user (StartRumour)
-	Join(peers []string, fromPeer chan<- map[string]string, fromUser chan<- Packet)
+	Join(peers []string, fromPeer chan<- map[string]Packet, fromUser chan<- Packet)
 	// StartRumour is the equivalent of receiving a gossip message from the user. This is sent to peers
 	StartRumour(data string)
 
 	AllGossip() map[string]*Packet
+	GetPacket(id string) *Packet
+	GetClock(id string) vClock.VectorClock
+}
+type gossip struct {
+	env                 EnvCfg // env
+	udp                 Client // udp client
+	mutex               sync.Mutex
+	logger              hclog.Logger
+	peerSampling        Sampling
+	gossipFromUser      chan<- Packet                 // gossip from user === (sendEvent)
+	gossipEventFromPeer chan<- map[string]Packet      // gossip Id from peer === (receiveEvent)
+	receivedGossipMap   map[string]*Packet            // map of all gossip id & gossip data received
+	eventClock          map[string]vClock.VectorClock // map of gossip id & event vector clock
+
+}
+
+func (g *gossip) GetClock(id string) vClock.VectorClock {
+	return g.eventClock[id]
+}
+
+func (g *gossip) GetPacket(id string) *Packet {
+	return g.receivedGossipMap[id] // packet or nil (todo -> get from other peers if nil)
 }
 
 // StartRumour is the equivalent of receiving a gossip message from the user. This is gossiped to peers
 func (g *gossip) StartRumour(data string) {
-	gP := newGossipMessage(data, g.selfAddress())
-	go g.startRumour(gP)
+	gP := newGossipMessage(data, g.selfAddress(), nil)
+	go g.startRumour(gP) // clock send events
 	g.gossipFromUser <- gP
 }
 func (g *gossip) startRumour(gP Packet) bool {
+	g.mutex.Lock()
+	defer g.mutex.Unlock()
 	newGossip := false
 	if g.receivedGossipMap[gP.GossipMessage.GossipMessageHash] == nil {
 		newGossip = true
@@ -60,10 +85,18 @@ func (g *gossip) beginGossipRounds(gsp gossipMessage) {
 // sendGossip sends the gossip message to FanOut number of peers
 func (g *gossip) sendGossip(gm gossipMessage) {
 	gsp := make(chan []byte)
+	var peers []string
 	for i := 0; i < FanOut; i++ {
-		peer := g.peerSampling.getPeer()
+		peers = append(peers, g.peerSampling.getPeer())
+	}
+	id := gm.GossipMessageHash
+	if g.eventClock[id] == nil {
+		g.eventClock[id] = vClock.Init(g.selfAddress())
+	}
+	clock := g.eventClock[id].SendEvent(gm.GossipMessageHash, peers)
+	for _, peer := range peers {
 		g.logger.Debug("[Gossip " + gm.GossipMessageHash + " ] to peer - " + peer)
-		if gossipRsp := g.udp.sendGossip(peer, gossipToByte(gm, g.selfAddress())); gossipRsp != nil {
+		if gossipRsp := g.udp.sendGossip(peer, gossipToByte(gm, g.selfAddress(), clock)); gossipRsp != nil {
 			gsp <- gossipRsp
 		}
 	}
@@ -79,9 +112,14 @@ func (g *gossip) sendGossip(gm gossipMessage) {
 // gossipCb is called when the udp server receives a gossip message. This is sent by peers and gossiped to peers
 // todo not used -> gossip response
 func (g *gossip) gossipCb(gossip Packet, from string) []byte {
-	if g.startRumour(gossip) { // if new id, send to raft -> mark as new receive event
-		g.gossipEventFromPeer <- map[string]string{
-			from: gossip.GossipMessage.GossipMessageHash,
+	id := gossip.GossipMessage.GossipMessageHash
+	if g.eventClock[id] == nil {
+		g.eventClock[id] = vClock.Init(g.selfAddress())
+	}
+	g.eventClock[id].ReceiveEvent(id, gossip.VectorClock)
+	if g.startRumour(gossip) { // if new id -> clock receive events
+		g.gossipEventFromPeer <- map[string]Packet{
+			from: gossip,
 		}
 	}
 	return []byte("OKAY")
@@ -89,17 +127,6 @@ func (g *gossip) gossipCb(gossip Packet, from string) []byte {
 func (g *gossip) selfAddress() string {
 	self := g.env.Hostname + ":" + g.env.UdpPort
 	return self
-}
-
-type gossip struct {
-	env                 EnvCfg // env
-	udp                 Client // udp client
-	mutex               sync.Mutex
-	logger              hclog.Logger
-	peerSampling        Sampling
-	gossipFromUser      chan<- Packet            // gossip from user === (sendEvent)
-	gossipEventFromPeer chan<- map[string]string // gossip Id from peer === (receiveEvent)
-	receivedGossipMap   map[string]*Packet       // map of all gossip id & gossip data received
 }
 
 func (g *gossip) AllGossip() map[string]*Packet {
@@ -126,6 +153,7 @@ func Default(hostname, port string, zone int) Gossip {
 		},
 		receivedGossipMap: make(map[string]*Packet),
 		peerSampling:      nil,
+		eventClock:        make(map[string]vClock.VectorClock),
 	}
 	g.peerSampling = InitPs(g.selfAddress())
 	g.peerSampling.setUdp(GetClient())
@@ -135,7 +163,7 @@ func Default(hostname, port string, zone int) Gossip {
 // Join starts the gossip protocol with these initial peers. Peer sampling is done to periodically
 // maintain a partial view (subset) of the gossip network. Data is sent of the channel when gossip
 // is received from a peer or from the user (StartRumour)
-func (g *gossip) Join(peers []string, fromPeer chan<- map[string]string, fromUser chan<- Packet) {
+func (g *gossip) Join(peers []string, fromPeer chan<- map[string]Packet, fromUser chan<- Packet) {
 	g.gossipEventFromPeer = fromPeer
 	g.gossipFromUser = fromUser
 	// listen calls the udp server to start and registers callbacks for incoming gossip or views from peers

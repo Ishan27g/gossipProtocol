@@ -3,12 +3,15 @@ package gossip
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/Ishan27gOrg/vClock"
 )
 
 // Packet exchanged between peers
 type Packet struct {
 	AvailableAt   []string // at which addresses the data is available
 	GossipMessage gossipMessage
+	VectorClock   vClock.EventClock
 }
 type gossipMessage struct {
 	Data              string
@@ -16,15 +19,16 @@ type gossipMessage struct {
 	GossipMessageHash string
 }
 
-func gossipToByte(g gossipMessage, from string) []byte {
-	b, _ := json.Marshal(gossipToPacket(g, from))
+func gossipToByte(g gossipMessage, from string, clock vClock.EventClock) []byte {
+	b, _ := json.Marshal(gossipToPacket(g, from, clock))
 	return b
 }
 
-func gossipToPacket(g gossipMessage, from string) Packet {
+func gossipToPacket(g gossipMessage, from string, clock vClock.EventClock) Packet {
 	return Packet{
 		AvailableAt:   []string{from},
 		GossipMessage: g,
+		VectorClock:   clock,
 	}
 }
 func ByteToPacket(b []byte) Packet {
@@ -43,12 +47,12 @@ func ByteToPacket(b []byte) Packet {
 
 // newGossipMessage creates a Gossip message with current timestamp,
 // creating a unique hash for every message
-func newGossipMessage(data string, from string) Packet {
+func newGossipMessage(data string, from string, clock vClock.EventClock) Packet {
 	g := gossipMessage{
 		Data:              data,
 		CreatedAt:         time.Now().UTC(),
 		GossipMessageHash: "",
 	}
 	g.GossipMessageHash = hash(g)
-	return gossipToPacket(g, from)
+	return gossipToPacket(g, from, clock)
 }
