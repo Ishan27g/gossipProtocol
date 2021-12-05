@@ -1,4 +1,4 @@
-package gossip
+package client
 
 import (
 	"net"
@@ -11,10 +11,10 @@ import (
 // Client is the UDP Client interface
 type Client interface {
 	// exchangeView sends a view to this peer and returns the view of the peer
-	exchangeView(address string, data []byte) []byte
+	ExchangeView(address string, data []byte) []byte
 	// sendGossip sends the gossip message to FanOut number of peers
 	// no return is expected (todo)
-	sendGossip(address string, data []byte) []byte
+	SendGossip(address string, data []byte) []byte
 }
 
 func GetClient() Client {
@@ -29,7 +29,7 @@ type udpClient struct {
 
 // SendGossip sends the gossip message to FanOut number of peers
 // no return is expected (todo)
-func (u *udpClient) sendGossip(address string, data []byte) []byte {
+func (u *udpClient) SendGossip(address string, data []byte) []byte {
 	s, err := net.ResolveUDPAddr("udp4", address)
 	if err != nil {
 		u.logger.Error(err.Error())
@@ -64,7 +64,7 @@ func (u *udpClient) sendGossip(address string, data []byte) []byte {
 }
 
 // ExchangeView sends a view to this peer and returns the view of the peer
-func (u *udpClient) exchangeView(address string, data []byte) []byte {
+func (u *udpClient) ExchangeView(address string, data []byte) []byte {
 	s, err := net.ResolveUDPAddr("udp4", address)
 	if err != nil {
 		u.logger.Error(err.Error())

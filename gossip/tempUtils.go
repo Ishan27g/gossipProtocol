@@ -3,42 +3,18 @@ package gossip
 import (
 	"crypto/sha1"
 	"fmt"
-	"math"
-	"strings"
 	"sync"
 	"time"
 )
 
-const (
-	ViewExchangeDelay = 3 * time.Second // timeout after which a View  is exchanged with a peer
-	RoundDelay        = 3 * time.Second // timeout between each round for a gossipMessage
-	MaxNodesInView    = 4               // max peers kept in local View TODO MaxNodesInView=6
-	FanOut            = 2               // num of peers to gossip a message to
-)
-
-/*
-	refactor to get info from raft : leader sends back a subset of all peers (during heartbeat?)
-*/
-
-// NetworkPeers returns the set of all possible peers, excluding self
-func NetworkPeers(self string) []string {
-	var networkPeers []string
-	for _, peer := range minPeers {
-		if strings.Compare(self, peer) != 0 {
-			networkPeers = append(networkPeers, peer)
-		}
-	}
-	return networkPeers
+type EnvCfg struct {
+	Hostname string `env:"HOST_NAME"`
+	UdpPort  string `env:"UDP_PORT,required"`
 }
-
-var minPeers = []string{"localhost:1101", "localhost:1102", "localhost:1103", "localhost:1104", "localhost:1105",
-	"localhost:1106", "localhost:1107", "localhost:1108", "localhost:1109", "localhost:1110"}
-
-/*
-	https://flopezluis.github.io/gossip-simulator/
-*/
-var numRounds = func() int {
-	return int(math.Ceil(math.Log10(float64(len(minPeers))) / math.Log10(FanOut)))
+type Config struct {
+	RoundDelay            time.Duration // timeout between each round for a gossipMessage
+	FanOut                int           // num of peers to gossip a message to
+	MinimumPeersInNetwork int           // number of rounds a message is gossiped = log(minPeers/FanOut)
 }
 
 func hash(obj interface{}) string {

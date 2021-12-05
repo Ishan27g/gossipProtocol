@@ -1,4 +1,4 @@
-package gossip
+package sampling
 
 /*
 	Partial View & strategies based on http://lpdwww.epfl.ch/upload/documents/publications/neg--1184036295all.pdf
@@ -16,8 +16,6 @@ import (
 	sll "github.com/emirpasic/gods/lists/singlylinkedlist"
 	"github.com/emirpasic/gods/utils"
 )
-
-const LogName = "View"
 
 // View of at max MaxNodesInView nodes in the network
 // updated during selectView()
@@ -54,13 +52,13 @@ func (v *View) checkExists(address string) (bool, int) {
 	return false, -1
 }
 
-// mergeView view2 into View 1, discarding duplicate nodes with higher hop count
+// MergeView view2 into View 1, discarding duplicate nodes with higher hop count
 func mergeViewExcludeNode(view1, view2 View, n NodeDescriptor) View {
 	return mergeMaps(toMap(view1, n.Address), toMap(view2, n.Address))
 }
 
-// mergeView view2 into View 1, discarding duplicate nodes with higher hop count
-func mergeView(view1, view2 View) View {
+// MergeView view2 into View 1, discarding duplicate nodes with higher hop count
+func MergeView(view1, view2 View) View {
 	merged := View{Nodes: sll.New()}
 	// For duplicate nodes in v2map, merge with v1map with lower hop
 	merge(toMap(view1, ""), toMap(view2, ""), merged)
@@ -68,7 +66,7 @@ func mergeView(view1, view2 View) View {
 	return merged
 }
 
-// mergeView view2 into View 1, discarding duplicate nodes with higher hop count
+// MergeView view2 into View 1, discarding duplicate nodes with higher hop count
 func mergeMaps(v1map, v2map map[string]int) View {
 	merged := View{Nodes: sll.New()}
 	// For duplicate nodes in v2map, merge with v1map with lower hop

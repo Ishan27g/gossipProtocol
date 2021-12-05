@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/Ishan27g/go-utils/mLogger"
+	"github.com/Ishan27gOrg/gossipProtocol/gossip/sampling"
 	"github.com/hashicorp/go-hclog"
 )
 
@@ -12,12 +13,12 @@ type Server struct {
 	logger   hclog.Logger
 	address  string
 	gossipCb func(Packet, string) []byte
-	viewCb   func(View, string) []byte
+	viewCb   func(sampling.View, string) []byte
 }
 
 // Listen starts the udp server that listens for an incoming view or gossip from peers.
 // Responds with the current view / gossip as per strategy.
-func Listen(port string, gossipCb func(Packet, string) []byte, viewCb func(View, string) []byte) {
+func Listen(port string, gossipCb func(Packet, string) []byte, viewCb func(sampling.View, string) []byte) {
 	server := Server{
 		logger:   mLogger.Get("udp-server"),
 		address:  "",
@@ -43,7 +44,7 @@ func Listen(port string, gossipCb func(Packet, string) []byte, viewCb func(View,
 	for {
 		readLen, addr, _ := connection.ReadFromUDP(buffer)
 		buffer = buffer[:readLen]
-		view, err := BytesToView(buffer)
+		view, err := sampling.BytesToView(buffer)
 		if err == nil {
 			server.logger.Debug("Server received view " + " from: " + addr.IP.String() + ":" + strconv.Itoa(addr.Port))
 			rsp := server.viewCb(view, addr.IP.String())

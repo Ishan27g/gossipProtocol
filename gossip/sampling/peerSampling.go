@@ -1,28 +1,30 @@
-package gossip
+package sampling
 
 import (
-	"math/rand"
 	"strconv"
 	"time"
 
 	"github.com/Ishan27g/go-utils/mLogger"
+	"github.com/Ishan27gOrg/gossipProtocol/gossip/client"
 	sll "github.com/emirpasic/gods/lists/singlylinkedlist"
 	"github.com/hashicorp/go-hclog"
 )
 
-type Sampling interface {
-	start(initialPeers []string)
-	getPeer() string
-	ReceivedView(view View, from string) []byte
+const (
+	ViewExchangeDelay = 3 * time.Second // timeout after which a View  is exchanged with a peer
+	MaxNodesInView    = 4               // max peers kept in local View TODO MaxNodesInView=6
+)
 
-	setUdp(udp Client)
+type Sampling interface {
+	Start(initialPeers []string)
+
+	SelectPeer() string
+	ReceiveView(view View, from string) []byte
 	fillView(peers ...string) // view to select peers from based on strategy
 	passive()
 	active()
 	getView() *View
 	selectView(view *View)
-
-	selectPeer() string
 }
 
 type peerSampling struct {
@@ -32,10 +34,10 @@ type peerSampling struct {
 	view           View
 	selfDescriptor NodeDescriptor // udp port
 	receivedView   chan passiveView
-	udp            Client
+	udp            client.Client
 }
 
-func (p *peerSampling) start(initialPeers []string) {
+func (p *peerSampling) Start(initialPeers []string) {
 	// fill view from possible peers
 	p.fillView(initialPeers...)
 	// select a subset of whole view
@@ -49,14 +51,7 @@ type passiveView struct {
 	fromPeer string
 }
 
-// GetPeer returns a random peer from a partial view of the entire network
-func (p *peerSampling) getPeer() string {
-	rand.Seed(time.Now().Unix())
-	node, _ := p.view.Nodes.Get(rand.Intn(p.view.Nodes.Size()))
-	return node.(NodeDescriptor).Address
-}
-
-func (p *peerSampling) ReceivedView(view View, from string) []byte {
+func (p *peerSampling) ReceiveView(view View, from string) []byte {
 	p.receivedView <- passiveView{
 		view:     view,
 		fromPeer: from,
@@ -84,14 +79,14 @@ func (p *peerSampling) passive() {
 		receivedView := new(View)
 		<-time.After(p.wait)
 		p.logger.Info("[PT]:ViewPropagationStrategy is - [" + strconv.Itoa(p.strategy.ViewPropagationStrategy) + "]")
-		peer := p.selectPeer()
+		peer := p.SelectPeer()
 		p.logger.Debug("[PT]:Propagating view to - [" + peer + "]")
 		if p.strategy.ViewPropagationStrategy == Push {
-			mergedView := mergeView(p.view, View{Nodes: sll.New(p.selfDescriptor)})
+			mergedView := MergeView(p.view, View{Nodes: sll.New(p.selfDescriptor)})
 			// send mergedView to peer, receive Ok or view
 			p.logger.Debug("[PT]:PUSH : sending current view merged with self descriptor to peer - " + peer)
 			p.logger.Info(printView(mergedView))
-			rspView, err := BytesToView(p.udp.exchangeView(peer, ViewToBytes(mergedView)))
+			rspView, err := BytesToView(p.udp.ExchangeView(peer, ViewToBytes(mergedView)))
 			if err == nil {
 				receivedView := &rspView
 				p.logger.Debug("[PT]:PUSH : receivedView from peer - " + peer + receivedView.Nodes.String()) // []byte("OKAY")
@@ -100,7 +95,7 @@ func (p *peerSampling) passive() {
 		} else {
 			p.logger.Debug("[PT]:PULL/PUSH-PULL :sending empty view to peer - " + peer)
 			// send emptyView to peer to trigger response
-			rspView, err := BytesToView(p.udp.exchangeView(peer, ViewToBytes(View{Nodes: sll.New()})))
+			rspView, err := BytesToView(p.udp.ExchangeView(peer, ViewToBytes(View{Nodes: sll.New()})))
 			if err == nil {
 				receivedView := &rspView
 				p.logger.Debug("[PT]:PULL/PUSH-PULL : receivedView from peer - " + peer + receivedView.Nodes.String()) // []byte("OKAY")
@@ -137,10 +132,10 @@ func (p *peerSampling) active() {
 		//printView(receivedView.view)
 		if p.strategy.ViewPropagationStrategy == Pull {
 			p.logger.Trace("[AT]:PULL - merging current view with self")
-			mergedView := mergeView(p.view, selfDescriptor(p.selfDescriptor))
+			mergedView := MergeView(p.view, selfDescriptor(p.selfDescriptor))
 			// send mergedView to peer, receive Ok or view
 			p.logger.Debug("[AT]:PULL : sending current view merged with self descriptor to peer - " + receivedView.fromPeer)
-			receivedView.view, _ = BytesToView(p.udp.exchangeView(receivedView.fromPeer, ViewToBytes(mergedView)))
+			receivedView.view, _ = BytesToView(p.udp.ExchangeView(receivedView.fromPeer, ViewToBytes(mergedView)))
 			p.logger.Debug("[AT]:PULL : response view from peer - " + receivedView.fromPeer)
 			//printView(receivedView.view)
 		}
@@ -182,8 +177,9 @@ func (p *peerSampling) selectView(view *View) {
 	p.view = *view
 }
 
-// returns a peer address from the network group
-func (p *peerSampling) selectPeer() string {
+// SelectPeer returns a peer address from the network group
+// based on strategy and current view
+func (p *peerSampling) SelectPeer() string {
 	address := ""
 	switch p.strategy.PeerSelectionStrategy {
 	case Random: // select random peer
@@ -193,20 +189,17 @@ func (p *peerSampling) selectPeer() string {
 	case Tail: // select peer with the highest hop
 		address = p.view.tailNode()
 	}
-	p.logger.Info("SELECTED PEER " + address)
+	p.logger.Debug("SELECTED PEER " + address)
 	//if strings.Compare(address, p.selfDescriptor.address) == 0{
-	//	return p.selectPeer()
+	//	return p.SelectPeer()
 	//}
 	return address
 }
 
-func (p *peerSampling) setUdp(udp Client) {
-	p.udp = udp
-}
 func selfDescriptor(n NodeDescriptor) View {
 	return View{Nodes: sll.New(n)}
 }
-func InitPs(self string) Sampling {
+func Init(self string) Sampling {
 	ps := peerSampling{
 		logger:   mLogger.Get("peer-sampling"),
 		wait:     ViewExchangeDelay,
@@ -219,7 +212,7 @@ func InitPs(self string) Sampling {
 			Hop:     0,
 		},
 		receivedView: make(chan passiveView),
-		udp:          nil,
+		udp:          client.GetClient(),
 	}
 	return &ps
 }

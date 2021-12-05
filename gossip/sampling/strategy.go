@@ -1,4 +1,4 @@
-package gossip
+package sampling
 
 const (
 	Random = iota
@@ -22,4 +22,3 @@ type PeerSamplingStrategy struct {
 	ViewPropagationStrategy int
 	ViewSelectionStrategy   int
 }
-

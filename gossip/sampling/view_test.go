@@ -1,4 +1,4 @@
-package gossip
+package sampling
 
 import (
 	"strconv"
@@ -24,7 +24,7 @@ func TestMerge(t *testing.T) {
 	v1 := mockView(lowerHop)
 	v2 := mockView(higherHop)
 
-	merged := mergeView(v1,v2)
+	merged := MergeView(v1, v2)
 
 	assert.Equal(t, merged.Nodes.Size(), v1.Nodes.Size())
 	merged.Nodes.Each(func(_ int, value interface{}) {
