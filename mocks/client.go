@@ -13,7 +13,7 @@ type MockUdpClientI interface {
 	MockSendGossip(address string, data []byte) []byte
 }
 type mockUdpClient struct {
-	client func() client.Client
+	client client.Client
 	view   sampling.View
 }
 
@@ -32,7 +32,7 @@ func (m *mockUdpClient) MockSendGossip(address string, data []byte) []byte {
 func MockClient(self string) MockUdpClientI {
 	view := mockView(self)
 	return &mockUdpClient{
-		client: client.GetClient,
+		client: client.GetClient(self),
 		view:   *view,
 	}
 }

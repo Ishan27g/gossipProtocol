@@ -10,16 +10,16 @@ import (
 
 // Client is the UDP Client interface
 type Client interface {
-	// exchangeView sends a view to this peer and returns the view of the peer
+	// ExchangeView sends a view to this peer and returns the view of the peer
 	ExchangeView(address string, data []byte) []byte
-	// sendGossip sends the gossip message to FanOut number of peers
+	// SendGossip sends the gossip message to FanOut number of peers
 	// no return is expected (todo)
 	SendGossip(address string, data []byte) []byte
 }
 
-func GetClient() Client {
+func GetClient(todo string) Client {
 	return &udpClient{
-		logger: mLogger.Get("udp-client"),
+		logger: mLogger.Get(todo + "-udp-client"),
 	}
 }
 
@@ -47,14 +47,14 @@ func (u *udpClient) SendGossip(address string, data []byte) []byte {
 	_, err = c.Write(data)
 
 	if err != nil {
-		u.logger.Error(err.Error())
+		u.logger.Error("this - " + err.Error())
 		return nil
 	}
 
 	buffer := make([]byte, 1024)
 	readLen, _, err := c.ReadFromUDP(buffer)
 	if err != nil {
-		u.logger.Error(err.Error())
+		u.logger.Error("This?? " + err.Error())
 		return nil
 	}
 	buffer = buffer[:readLen]

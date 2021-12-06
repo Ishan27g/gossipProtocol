@@ -20,7 +20,7 @@ type Server struct {
 // Responds with the current view / gossip as per strategy.
 func Listen(port string, gossipCb func(Packet, string) []byte, viewCb func(sampling.View, string) []byte) {
 	server := Server{
-		logger:   mLogger.Get("udp-server"),
+		logger:   mLogger.Get(port + "-udp-server"),
 		address:  "",
 		gossipCb: gossipCb,
 		viewCb:   viewCb,
@@ -39,9 +39,9 @@ func Listen(port string, gossipCb func(Packet, string) []byte, viewCb func(sampl
 	server.address = connection.LocalAddr().String()
 
 	defer connection.Close()
-	buffer := make([]byte, 1024)
 
 	for {
+		buffer := make([]byte, 1024)
 		readLen, addr, _ := connection.ReadFromUDP(buffer)
 		buffer = buffer[:readLen]
 		view, err := sampling.BytesToView(buffer)
@@ -58,6 +58,7 @@ func Listen(port string, gossipCb func(Packet, string) []byte, viewCb func(sampl
 		} else {
 			server.logger.Debug("Server received gossip " + " from: " + addr.IP.String() + ":" + strconv.Itoa(addr.Port))
 			rsp := server.gossipCb(ByteToPacket(buffer), addr.IP.String()+":"+strconv.Itoa(addr.Port))
+			server.logger.Debug("Server sending gossip response to: " + addr.String())
 			_, err = connection.WriteToUDP(rsp, addr)
 			if err != nil {
 				server.logger.Error(err.Error())

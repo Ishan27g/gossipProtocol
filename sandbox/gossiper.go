@@ -2,35 +2,39 @@ package main
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/Ishan27g/go-utils/mLogger"
 	"github.com/Ishan27gOrg/gossipProtocol/gossip"
 )
 
-func exampleCustomStrategy(hostname, udp string, zone int) {
-	g := gossip.Default(hostname, udp, zone) // zone 1
+func exampleCustomStrategy(hostname, udp string) gossip.Gossip {
+	mLogger.New("ok", "trace", os.Stderr)
+	g := gossip.DefaultConfig(hostname, udp) // zone 1
 
-	packetsReceivedFromPeers := make(chan map[string]string)
-	packetsSentByUser := make(chan gossip.Packet)
-	g.Join(network, packetsReceivedFromPeers, packetsSentByUser) // across zones
+	newGossipEvent := make(chan gossip.Packet)
+	g.JoinWithoutSampling([]string{"localhost:1001", "localhost:1002", "localhost:1003", "localhost:1004"}, newGossipEvent) // across zones
 	// g.StartRumour("")
 
-	for {
-		select {
-		case from, id := <-packetsReceivedFromPeers:
-			fmt.Println("received gossip ", id, " from  ", from)
-		case packet := <-packetsSentByUser:
-			fmt.Println("Sent gossip to network - ", packet.GossipMessage.GossipMessageHash,
-				" data - ", packet.GossipMessage.Data)
+	go func() {
+		for {
+			select {
+			case packet := <-newGossipEvent:
+				fmt.Printf("\nreceived gossip %v\n", packet)
+			}
 		}
-	}
+	}()
+	return g
 }
 
-var hostname = "http://localhost"
-var network = []string{"1001", "2102", "4103", "2003", "1000"}
+var hostname = "localhost"
+var network = []string{"1001", "1002", "1003", "1004"}
 
 func main() {
 	for i := len(network) - 1; i >= 1; i-- {
-		go exampleCustomStrategy(hostname, network[i], i)
+		go exampleCustomStrategy(hostname, network[i])
 	}
-	exampleCustomStrategy(hostname, network[0], 1)
+	// g := exampleCustomStrategy(hostname, network[0])
+	// g.StartRumour("hello")
+	// <-make(chan bool)
 }

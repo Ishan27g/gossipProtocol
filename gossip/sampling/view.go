@@ -6,7 +6,6 @@ package sampling
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -217,7 +216,6 @@ func BytesToView(bytes []byte) (View, error) {
 	}
 	var m map[string]int
 	if err := json.Unmarshal(bytes, &m); err != nil {
-		fmt.Println("Unmarshal error" + err.Error())
 		return View{}, err
 	}
 	v := View{Nodes: sll.New()}

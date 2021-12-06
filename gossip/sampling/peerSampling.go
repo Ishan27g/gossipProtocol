@@ -12,7 +12,7 @@ import (
 
 const (
 	ViewExchangeDelay = 3 * time.Second // timeout after which a View  is exchanged with a peer
-	MaxNodesInView    = 4               // max peers kept in local View TODO MaxNodesInView=6
+	MaxNodesInView    = 6               // max peers kept in local View TODO MaxNodesInView=6
 )
 
 type Sampling interface {
@@ -212,7 +212,7 @@ func Init(self string) Sampling {
 			Hop:     0,
 		},
 		receivedView: make(chan passiveView),
-		udp:          client.GetClient(),
+		udp:          client.GetClient(self),
 	}
 	return &ps
 }
