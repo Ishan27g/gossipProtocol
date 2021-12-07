@@ -2,14 +2,13 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/Ishan27g/go-utils/mLogger"
 	"github.com/Ishan27gOrg/gossipProtocol/gossip"
 )
 
 func main() {
-	mLogger.New("ok", "trace", os.Stderr)
+	mLogger.New("ok", "trace")
 	g := gossip.DefaultConfig("http://localhost", "1000") // zone 1
 
 	newGossipEvent := make(chan gossip.Packet)

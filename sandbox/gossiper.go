@@ -2,15 +2,13 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"time"
 
-	"github.com/Ishan27g/go-utils/mLogger"
 	"github.com/Ishan27gOrg/gossipProtocol/gossip"
 )
 
 func exampleCustomStrategy(hostname, udp string) gossip.Gossip {
-	mLogger.New("ok", "debug", os.Stderr)
+	// mLogger.New("ok", "debug", os.Stderr)
 	g := gossip.DefaultConfig(hostname, udp) // zone 1
 
 	newGossipEvent := make(chan gossip.Packet)

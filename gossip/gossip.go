@@ -47,7 +47,7 @@ type gossip struct {
 func (g *gossip) RemovePacket(id string) (*Packet, vClock.EventClock) {
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
-	packet, clock := g.receivedGossipMap[id], g.eventClock[id].Get()
+	packet, clock := g.receivedGossipMap[id], g.eventClock[id].Get(id)
 	delete(g.receivedGossipMap, id)
 	delete(g.eventClock, id)
 	return packet, clock
@@ -83,7 +83,7 @@ func (g *gossip) StartRumour(data string) {
 	g.newGossipPacket <- Packet{
 		AvailableAt:   gP.AvailableAt,
 		GossipMessage: gP.GossipMessage,
-		VectorClock:   g.eventClock[gP.GetId()].Get(), // return updated clock
+		VectorClock:   g.eventClock[gP.GetId()].Get(gP.GetId()), // return updated clock
 	}
 }
 func (g *gossip) startRumour(gP Packet) bool {

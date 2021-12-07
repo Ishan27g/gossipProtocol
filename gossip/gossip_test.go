@@ -2,7 +2,6 @@ package gossip
 
 import (
 	"fmt"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -55,7 +54,7 @@ func mockGossipDefaultConfig(hostname, port string) mockGossip {
 	return m
 }
 func TestGossip(t *testing.T) {
-	mLogger.New("", "info", os.Stderr)
+	mLogger.New("", "info")
 	var mg []mockGossip
 	events := make(chan Packet, 4)
 	var wg sync.WaitGroup
