@@ -14,10 +14,20 @@ type Packet struct {
 	GossipMessage gossipMessage
 	VectorClock   vClock.EventClock
 }
+
+func (p *Packet) GetId() string {
+	return p.GossipMessage.GossipMessageHash
+}
+
+func (p *Packet) GetVersion() int {
+	return p.GossipMessage.Version
+}
+
 type gossipMessage struct {
 	Data              string
 	CreatedAt         time.Time
 	GossipMessageHash string
+	Version           int
 }
 
 func gossipToByte(g gossipMessage, from string, clock vClock.EventClock) []byte {
@@ -51,6 +61,7 @@ func newGossipMessage(data string, from string, clock vClock.EventClock) Packet 
 		Data:              data,
 		CreatedAt:         time.Now().UTC(),
 		GossipMessageHash: "",
+		Version:           0,
 	}
 	g.GossipMessageHash = hash(g)
 	return *gossipToPacket(g, from, clock)

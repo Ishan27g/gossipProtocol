@@ -46,25 +46,25 @@ func Listen(port string, gossipCb func(Packet, string) []byte, viewCb func(sampl
 		buffer = buffer[:readLen]
 		view, err := sampling.BytesToView(buffer)
 		if err == nil {
-			server.logger.Debug("Server received view " + " from: " + addr.IP.String() + ":" + strconv.Itoa(addr.Port))
+			server.logger.Trace("Server received view " + " from: " + addr.IP.String() + ":" + strconv.Itoa(addr.Port))
 			rsp := server.viewCb(view, addr.IP.String())
 			_, err = connection.WriteToUDP(rsp, addr)
 			if err != nil {
 				server.logger.Error(err.Error())
 				// return
 			} else {
-				server.logger.Debug("Server sent view response to: " + addr.String())
+				server.logger.Trace("Server sent view response to: " + addr.String())
 			}
 		} else {
-			server.logger.Debug("Server received gossip " + " from: " + addr.IP.String() + ":" + strconv.Itoa(addr.Port))
+			server.logger.Trace("Server received gossip " + " from: " + addr.IP.String() + ":" + strconv.Itoa(addr.Port))
 			rsp := server.gossipCb(ByteToPacket(buffer), addr.IP.String()+":"+strconv.Itoa(addr.Port))
-			server.logger.Debug("Server sending gossip response to: " + addr.String())
+			server.logger.Trace("Server sending gossip response to: " + addr.String())
 			_, err = connection.WriteToUDP(rsp, addr)
 			if err != nil {
 				server.logger.Error(err.Error())
 				// return
 			} else {
-				server.logger.Debug("Server sent gossip response to: " + addr.String())
+				server.logger.Trace("Server sent gossip response to: " + addr.String())
 			}
 		}
 	}

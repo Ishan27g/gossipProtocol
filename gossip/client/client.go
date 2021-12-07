@@ -59,7 +59,7 @@ func (u *udpClient) SendGossip(address string, data []byte) []byte {
 	}
 	buffer = buffer[:readLen]
 
-	u.logger.Debug("Received gossip response from - " + c.RemoteAddr().String())
+	u.logger.Trace("Received gossip response from - " + c.RemoteAddr().String())
 	return buffer
 }
 
@@ -76,7 +76,7 @@ func (u *udpClient) ExchangeView(address string, data []byte) []byte {
 		return nil
 	}
 
-	u.logger.Debug("Sending view UDP to - " + c.RemoteAddr().String())
+	u.logger.Trace("Sending view UDP to - " + c.RemoteAddr().String())
 	defer c.Close()
 	_, err = c.Write(data)
 
@@ -92,6 +92,6 @@ func (u *udpClient) ExchangeView(address string, data []byte) []byte {
 		return nil
 	}
 	buffer = buffer[:readLen]
-	u.logger.Debug("Received view UDP from - " + c.RemoteAddr().String())
+	u.logger.Trace("Received view UDP from - " + c.RemoteAddr().String())
 	return buffer
 }

@@ -53,85 +53,6 @@ func (g *gossip) RemovePacket(id string) (*Packet, vClock.EventClock) {
 	return packet, clock
 }
 
-// StartRumour is the equivalent of receiving a gossip message from the user. This is gossiped to peers
-func (g *gossip) StartRumour(data string) {
-	gP := newGossipMessage(data, g.selfAddress(), nil)
-	g.startRumour(gP) // clock send event
-	g.newGossipPacket <- Packet{
-		AvailableAt:   gP.AvailableAt,
-		GossipMessage: gP.GossipMessage,
-		VectorClock:   g.eventClock[gP.GossipMessage.GossipMessageHash].Get(), // return updated clock
-	}
-}
-func (g *gossip) startRumour(gP Packet) bool {
-	newGossip := false
-	if g.receivedGossipMap[gP.GossipMessage.GossipMessageHash] == nil {
-		newGossip = true
-		gP.AvailableAt = append(gP.AvailableAt, g.selfAddress())
-		g.logger.Debug("Received new gossip - " + gP.GossipMessage.GossipMessageHash +
-			" from - " + gP.AvailableAt[0] + " gossiping....✅")
-
-		g.mutex.Lock()
-		g.receivedGossipMap[gP.GossipMessage.GossipMessageHash] = &gP
-		g.mutex.Unlock()
-
-		g.beginGossipRounds(gP.GossipMessage)
-	} else {
-		//	g.mutex.Lock()
-		gPExisting := g.receivedGossipMap[gP.GossipMessage.GossipMessageHash]
-		gPExisting.AvailableAt = append(gPExisting.AvailableAt, gP.AvailableAt[0])
-		g.logger.Debug("Received existing gossip - " + gP.GossipMessage.GossipMessageHash +
-			" adding new download address, not gossipping....❌")
-		//	g.mutex.Unlock()
-	}
-	return newGossip
-}
-
-// beginGossipRounds sends the gossip message for M rounds
-// where M is calculated from the config provided.
-// https://flopezluis.github.io/gossip-simulator/
-func (g *gossip) beginGossipRounds(gsp gossipMessage) {
-	rounds := int(math.Ceil(math.Log10(float64(g.c.MinimumPeersInNetwork)) /
-		math.Log10(float64(g.c.FanOut))))
-	rounds = 1
-	g.logger.Debug("num of gossip rounds - " + strconv.Itoa(rounds))
-	g.logger.Debug("[Gossip started] - " + gsp.GossipMessageHash)
-	for i := 0; i < rounds; i++ {
-		<-time.After(g.c.RoundDelay)
-		g.sendGossip(gsp)
-	}
-	g.logger.Debug("[Gossip ended] - " + gsp.GossipMessageHash)
-}
-
-// sendGossip sends the gossip message to FanOut number of peers
-func (g *gossip) sendGossip(gm gossipMessage) {
-	gsp := make(chan []byte)
-	var peers []string
-	for i := 1; i <= g.c.FanOut; i++ {
-		peers = append(peers, g.peerSelector())
-	}
-	id := gm.GossipMessageHash
-	g.mutex.Lock()
-	if g.eventClock[id] == nil {
-		g.eventClock[id] = vClock.Init(g.selfAddress())
-	}
-	clock := g.eventClock[id].SendEvent(gm.GossipMessageHash, peers)
-	g.mutex.Unlock()
-	go func() {
-		for i := 1; i <= g.c.FanOut; i++ {
-			gs := <-gsp
-			g.logger.Debug("Received gossip response on main " + string(gs)) // OK
-		}
-	}()
-	for _, peer := range peers {
-		g.logger.Debug("[Gossip " + gm.GossipMessageHash + " ] to peer - " + peer)
-		//if gossipRsp := g.udp.SendGossip(peer, gossipToByte(gm, g.selfAddress(), clock)); gossipRsp != nil {
-		//	gsp <- gossipRsp
-		//}
-		g.udp.SendGossip(peer, gossipToByte(gm, g.selfAddress(), clock))
-	}
-}
-
 // gossipCb is called when the udp server receives a gossip message. This is sent by peers and gossiped to peers
 // response for a gossip message sent to a peer is not used, returns anything
 func (g *gossip) gossipCb(gossip Packet, from string) []byte {
@@ -153,6 +74,77 @@ func (g *gossip) gossipCb(gossip Packet, from string) []byte {
 	}()
 	return []byte("OKAY")
 }
+
+// StartRumour is the equivalent of receiving a gossip message from the user. This is gossiped to peers
+func (g *gossip) StartRumour(data string) {
+	gP := newGossipMessage(data, g.selfAddress(), nil)
+	gP.GossipMessage.Version++
+	g.startRumour(gP) // clock send event
+	g.newGossipPacket <- Packet{
+		AvailableAt:   gP.AvailableAt,
+		GossipMessage: gP.GossipMessage,
+		VectorClock:   g.eventClock[gP.GetId()].Get(), // return updated clock
+	}
+}
+func (g *gossip) startRumour(gP Packet) bool {
+	newGossip := false
+	if g.receivedGossipMap[gP.GetId()] == nil {
+		newGossip = true
+		gP.AvailableAt = append(gP.AvailableAt, g.selfAddress())
+		g.logger.Info("Received new gossip [version-" + strconv.Itoa(gP.GetVersion()) + "] " + gP.GetId() + " gossiping....✅")
+		g.mutex.Lock()
+		g.receivedGossipMap[gP.GetId()] = &gP
+		g.mutex.Unlock()
+
+		g.beginGossipRounds(gP.GossipMessage)
+	} else {
+		g.logger.Trace("Received existing gossip [version-" + strconv.Itoa(gP.GetVersion()) + "] " + gP.GetId() +
+			"checking version, not gossipping....❌")
+		if g.receivedGossipMap[gP.GetId()].GetVersion() < gP.GetVersion() {
+			g.mutex.Lock()
+			g.receivedGossipMap[gP.GetId()] = &gP
+			g.mutex.Unlock()
+			g.logger.Debug("gossip [version-" + strconv.Itoa(gP.GetVersion()) + "] " + gP.GetId() + " Updated locally")
+		}
+	}
+	return newGossip
+}
+
+// beginGossipRounds sends the gossip message for M rounds
+// where M is calculated from the config provided.
+// https://flopezluis.github.io/gossip-simulator/
+func (g *gossip) beginGossipRounds(gsp gossipMessage) {
+	rounds := int(math.Ceil(math.Log10(float64(g.c.MinimumPeersInNetwork)) /
+		math.Log10(float64(g.c.FanOut))))
+	rounds = 2
+	g.logger.Debug("Gossip rounds - " + strconv.Itoa(rounds) + " for id - " + gsp.GossipMessageHash)
+	for i := 0; i < rounds; i++ {
+		<-time.After(g.c.RoundDelay)
+		g.sendGossip(gsp)
+		gsp.Version++
+	}
+	g.logger.Debug("[Gossip ended] - " + gsp.GossipMessageHash)
+}
+
+// sendGossip sends the gossip message to FanOut number of peers
+func (g *gossip) sendGossip(gm gossipMessage) {
+	var peers []string
+	for i := 1; i <= g.c.FanOut; i++ {
+		peers = append(peers, g.peerSelector())
+	}
+	id := gm.GossipMessageHash
+	g.mutex.Lock()
+	if g.eventClock[id] == nil {
+		g.eventClock[id] = vClock.Init(g.selfAddress())
+	}
+	clock := g.eventClock[id].SendEvent(gm.GossipMessageHash, peers)
+	g.mutex.Unlock()
+	for _, peer := range peers {
+		g.logger.Trace("Gossipping Id - [ " + gm.GossipMessageHash + " ] to peer - " + peer)
+		go g.udp.SendGossip(peer, gossipToByte(gm, g.selfAddress(), clock))
+	}
+}
+
 func (g *gossip) selfAddress() string {
 	self := g.env.Hostname + ":" + g.env.UdpPort
 	return self
