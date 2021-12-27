@@ -1,7 +1,6 @@
 package gossip
 
 import (
-	"math"
 	"math/rand"
 	"strconv"
 	"sync"
@@ -18,16 +17,17 @@ type Gossip interface {
 	// JoinWithSampling starts the gossip protocol with these initial peers. Peer sampling is done to periodically
 	// maintain a partial view (subset) of the gossip network. Data is sent of the channel when gossip
 	// is received from a peer or from the user (StartRumour)
-	JoinWithSampling(peers []string, newGossip chan<- Packet)
+	JoinWithSampling(peers []string, newGossip chan Packet)
 	// JoinWithoutSampling starts the gossip protocol with these initial peers. Peers are iteratively selected.
 	// Data is sent of the channel when gossip is received from a peer or from the user (StartRumour)
-	JoinWithoutSampling(peers []string, newGossip chan<- Packet)
+	JoinWithoutSampling(peers []string, newGossip chan Packet)
 	// StartRumour is the equivalent of receiving a gossip message from the user. This is sent to peers
 	StartRumour(data string)
-
+	ReceiveGossip() chan Packet // gossip from user/peer : packet
 	// RemovePacket will return the packet and its latest event clock after removing it from memory
 	// Should be called after Any new packet with this id will initiate a new clock
 	RemovePacket(id string) (*Packet, vClock.EventClock)
+	CurrentPeers() []string
 }
 type gossip struct {
 	c                 *Config       // gossip protocol configuration
@@ -36,10 +36,19 @@ type gossip struct {
 	mutex             sync.Mutex
 	logger            hclog.Logger
 	peerSelector      func() string
+	peers             []string
 	viewCb            func(view sampling2.View, from string) []byte
-	newGossipPacket   chan<- Packet                 // gossip from user/peer : packet
+	newGossipPacket   chan Packet                   // gossip from user/peer : packet
 	receivedGossipMap map[string]*Packet            // map of all gossip id & gossip data received
 	eventClock        map[string]vClock.VectorClock // map of gossip id & event vector clock
+}
+
+func (g *gossip) CurrentPeers() []string {
+	return g.peers
+}
+
+func (g *gossip) ReceiveGossip() chan Packet {
+	return g.newGossipPacket
 }
 
 // RemovePacket will return the packet and its latest event clock after removing it from memory
@@ -60,7 +69,7 @@ func (g *gossip) gossipCb(gossip Packet, from string) []byte {
 
 	g.mutex.Lock()
 	if g.eventClock[id] == nil {
-		g.eventClock[id] = vClock.Init(g.selfAddress())
+		g.eventClock[id] = vClock.Init(g.SelfAddress())
 	}
 	// from peer, clock receive event
 	g.eventClock[id].ReceiveEvent(id, gossip.VectorClock)
@@ -77,7 +86,7 @@ func (g *gossip) gossipCb(gossip Packet, from string) []byte {
 
 // StartRumour is the equivalent of receiving a gossip message from the user. This is gossiped to peers
 func (g *gossip) StartRumour(data string) {
-	gP := newGossipMessage(data, g.selfAddress(), nil)
+	gP := newGossipMessage(data, g.SelfAddress(), nil)
 	gP.GossipMessage.Version++
 	g.startRumour(gP) // clock send event
 	g.newGossipPacket <- Packet{
@@ -90,7 +99,7 @@ func (g *gossip) startRumour(gP Packet) bool {
 	newGossip := false
 	if g.receivedGossipMap[gP.GetId()] == nil {
 		newGossip = true
-		gP.AvailableAt = append(gP.AvailableAt, g.selfAddress())
+		gP.AvailableAt = append(gP.AvailableAt, g.SelfAddress())
 		g.logger.Info("Received new gossip [version-" + strconv.Itoa(gP.GetVersion()) + "] " + gP.GetId() + " gossiping....✅")
 		g.mutex.Lock()
 		g.receivedGossipMap[gP.GetId()] = &gP
@@ -114,9 +123,10 @@ func (g *gossip) startRumour(gP Packet) bool {
 // where M is calculated from the config provided.
 // https://flopezluis.github.io/gossip-simulator/
 func (g *gossip) beginGossipRounds(gsp gossipMessage) {
-	rounds := int(math.Ceil(math.Log10(float64(g.c.MinimumPeersInNetwork)) /
-		math.Log10(float64(g.c.FanOut))))
-	rounds = 2
+	// todo revert back
+	//rounds := int(math.Ceil(math.Log10(float64(g.c.MinimumPeersInNetwork)) /
+	//	math.Log10(float64(g.c.FanOut))))
+	rounds := 2
 	g.logger.Debug("Gossip rounds - " + strconv.Itoa(rounds) + " for id - " + gsp.GossipMessageHash)
 	for i := 0; i < rounds; i++ {
 		<-time.After(g.c.RoundDelay)
@@ -130,22 +140,28 @@ func (g *gossip) beginGossipRounds(gsp gossipMessage) {
 func (g *gossip) sendGossip(gm gossipMessage) {
 	var peers []string
 	for i := 1; i <= g.c.FanOut; i++ {
-		peers = append(peers, g.peerSelector())
+		peer := g.peerSelector()
+		if peer != "" {
+			peers = append(peers, g.peerSelector())
+		}
+	}
+	if len(peers) == 0 {
+		return
 	}
 	id := gm.GossipMessageHash
 	g.mutex.Lock()
 	if g.eventClock[id] == nil {
-		g.eventClock[id] = vClock.Init(g.selfAddress())
+		g.eventClock[id] = vClock.Init(g.SelfAddress())
 	}
 	clock := g.eventClock[id].SendEvent(gm.GossipMessageHash, peers)
 	g.mutex.Unlock()
 	for _, peer := range peers {
 		g.logger.Trace("Gossipping Id - [ " + gm.GossipMessageHash + " ] to peer - " + peer)
-		go g.udp.SendGossip(peer, gossipToByte(gm, g.selfAddress(), clock))
+		go g.udp.SendGossip(peer, gossipToByte(gm, g.SelfAddress(), clock))
 	}
 }
 
-func (g *gossip) selfAddress() string {
+func (g *gossip) SelfAddress() string {
 	self := g.env.Hostname + ":" + g.env.UdpPort
 	return self
 }
@@ -153,9 +169,10 @@ func (g *gossip) selfAddress() string {
 // JoinWithSampling starts the gossip protocol with these initial peers. Peer sampling is done to periodically
 // maintain a partial view (subset) of the gossip network. Data is sent of the channel when gossip
 // is received from a peer or from the user (StartRumour)
-func (g *gossip) JoinWithSampling(peers []string, newGossip chan<- Packet) {
+func (g *gossip) JoinWithSampling(peers []string, newGossip chan Packet) {
 
-	ps := sampling2.Init(g.selfAddress())
+	ps := sampling2.Init(g.SelfAddress())
+	g.peers = peers
 	g.peerSelector = ps.SelectPeer
 	g.viewCb = ps.ReceiveView
 
@@ -163,18 +180,24 @@ func (g *gossip) JoinWithSampling(peers []string, newGossip chan<- Packet) {
 	// listen calls the udp server to Start and registers callbacks for incoming gossip or views from peers
 	go Listen(g.env.UdpPort, g.gossipCb, g.viewCb)
 	// Start peer sampling and exchange views
-	go ps.Start(peers)
+	go ps.Start(g.peers)
 }
 
-func (g *gossip) JoinWithoutSampling(peers []string, newGossip chan<- Packet) {
+func (g *gossip) JoinWithoutSampling(peers []string, newGossip chan Packet) {
 	rand.Seed(time.Now().Unix())
 	var randomPeer = func() string {
+		if len(peers) == 0 {
+			return ""
+		}
 		return peers[rand.Intn(len(peers))]
 	}
 	var noViewExchange = func(view sampling2.View, s string) []byte {
 		return []byte("never called")
 	}
+	g.peers = peers
 	g.peerSelector = randomPeer
+	g.viewCb = noViewExchange
+
 	g.newGossipPacket = newGossip
 	// listen calls the udp server to Start and registers callbacks for incoming gossip or views from peers
 	go Listen(g.env.UdpPort, g.gossipCb, noViewExchange)
@@ -191,6 +214,7 @@ func withConfig(hostname, port string, c *Config) Gossip {
 		},
 		receivedGossipMap: make(map[string]*Packet),
 		peerSelector:      nil,
+		peers:             []string{},
 		eventClock:        make(map[string]vClock.VectorClock),
 		c:                 c,
 	}

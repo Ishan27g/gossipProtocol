@@ -31,10 +31,10 @@ var network = []string{"1001", "1002", "1003", "1004"}
 
 func main() {
 	for i := len(network) - 1; i >= 1; i-- {
-		go exampleCustomStrategy(hostname, network[i])
+		go exampleCustomStrategy(hostname, ":"+network[i])
 	}
 	<-time.After(1 * time.Second)
-	g := exampleCustomStrategy(hostname, network[0])
+	g := exampleCustomStrategy(hostname, ":"+network[0])
 	g.StartRumour("hello")
 	<-make(chan bool)
 }

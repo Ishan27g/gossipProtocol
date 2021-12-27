@@ -7,11 +7,30 @@ import (
 	"time"
 
 	"github.com/Ishan27g/go-utils/mLogger"
+	"github.com/Ishan27gOrg/gossipProtocol/gossip/sampling"
 	"github.com/stretchr/testify/assert"
 )
 
+const hostname = "http://localhost"
+
+var udpPort = []string{":50001", ":50002", ":50003", ":50004", ":50005", ":50006", ":50007"}
+var httpPort = []string{":1001", ":1002", ":1003", ":1004", ":1005", ":1006", ":1007"}
+var httpPorts = func() []string {
+	return httpPort
+}
+var udpPorts = func(exclude int) []string {
+	var ports []string
+	for i, s := range udpPort {
+		if i == exclude {
+			continue
+		}
+		ports = append(ports, s)
+	}
+	return ports
+}
+
 var network = func() []string {
-	return []string{"1001", "1002", "1003", "1004"}
+	return []string{":1001", ":1002", ":1003", ":1004"}
 }
 
 type mockGossip struct {
@@ -46,7 +65,7 @@ func mockGossipDefaultConfig(hostname, port string) mockGossip {
 	self := port
 	var nw []string
 	for _, s := range remove(self, network()) {
-		nw = append(nw, ":"+s)
+		nw = append(nw, s)
 	}
 	m.g.JoinWithoutSampling(nw, m.newGossipEvent) // across zones
 	// g.StartRumour("")
@@ -54,7 +73,7 @@ func mockGossipDefaultConfig(hostname, port string) mockGossip {
 	return m
 }
 func TestGossip(t *testing.T) {
-	mLogger.New("", "info")
+	mLogger.New("", "off")
 	var mg []mockGossip
 	events := make(chan Packet, 4)
 	var wg sync.WaitGroup
@@ -79,5 +98,34 @@ func TestGossip(t *testing.T) {
 	assert.Equal(t, 4, len(events))
 	for event := range events {
 		assert.Equal(t, "hello", event.GossipMessage.Data)
+	}
+}
+
+func setupPeers() []sampling.Sampling {
+	var peers []sampling.Sampling
+	for i, port := range httpPorts() {
+		peer := sampling.Init(hostname + port)
+		go Listen(udpPort[i], nil, peer.ReceiveView)
+		peers = append(peers, peer)
+	}
+	time.Sleep(1 * time.Second)
+	return peers
+}
+
+func TestGossip_JoinWithSampling(t *testing.T) {
+	mLogger.New("ok", "off")
+	peers := setupPeers()
+	for i := 0; i < len(peers); i++ {
+		p := udpPorts(i)
+		peers[i].Start(p)
+	}
+	time.Sleep(20 * time.Second)
+	for i := 0; i < len(peers); i++ {
+		//	fmt.Println(sampling.PrintView(*peers[i].GetView()))
+		view := *peers[i].GetView()
+		view.Nodes.Each(func(index int, value interface{}) {
+			n := value.(sampling.NodeDescriptor)
+			assert.NotEqual(t, hostname+httpPort[i], n.Address)
+		})
 	}
 }

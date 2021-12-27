@@ -168,7 +168,7 @@ func (v *View) RandomView() {
 			selection.Add(node)
 			// }
 		}
-		if selection.Size() == MaxNodesInView {
+		if selection.Size() == MaxNodesInView || selection.Size() == v.Nodes.Size() { // todo v.Nodes.Size() not need
 			break
 		}
 	}
@@ -224,7 +224,7 @@ func BytesToView(bytes []byte) (View, error) {
 	}
 	return v, nil
 }
-func printView(view View) string {
+func PrintView(view View) string {
 	str := "View len - " + strconv.Itoa(view.Nodes.Size())
 	//mLogger.Get(LogName).Info("View len - " + strconv.Itoa(View.nodes.Size()))
 	view.Nodes.Each(func(_ int, value interface{}) {

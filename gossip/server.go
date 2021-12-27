@@ -25,7 +25,7 @@ func Listen(port string, gossipCb func(Packet, string) []byte, viewCb func(sampl
 		gossipCb: gossipCb,
 		viewCb:   viewCb,
 	}
-	s, err := net.ResolveUDPAddr("udp4", ":"+port)
+	s, err := net.ResolveUDPAddr("udp4", port)
 	if err != nil {
 		server.logger.Error(err.Error())
 		return
@@ -46,7 +46,7 @@ func Listen(port string, gossipCb func(Packet, string) []byte, viewCb func(sampl
 		buffer = buffer[:readLen]
 		view, err := sampling.BytesToView(buffer)
 		if err == nil {
-			server.logger.Trace("Server received view " + " from: " + addr.IP.String() + ":" + strconv.Itoa(addr.Port))
+			server.logger.Trace("Server received view " + " from: " + addr.String() + ":" + strconv.Itoa(addr.Port))
 			rsp := server.viewCb(view, addr.IP.String())
 			_, err = connection.WriteToUDP(rsp, addr)
 			if err != nil {
