@@ -145,9 +145,6 @@ func (g *gossip) sendGossip(gm gossipMessage) {
 			peers = append(peers, g.peerSelector())
 		}
 	}
-	if len(peers) == 0 {
-		return
-	}
 	id := gm.GossipMessageHash
 	g.mutex.Lock()
 	if g.eventClock[id] == nil {
@@ -155,6 +152,10 @@ func (g *gossip) sendGossip(gm gossipMessage) {
 	}
 	clock := g.eventClock[id].SendEvent(gm.GossipMessageHash, peers)
 	g.mutex.Unlock()
+
+	if len(peers) == 0 {
+		return
+	}
 	for _, peer := range peers {
 		g.logger.Trace("Gossipping Id - [ " + gm.GossipMessageHash + " ] to peer - " + peer)
 		go g.udp.SendGossip(peer, gossipToByte(gm, g.SelfAddress(), clock))
@@ -217,6 +218,7 @@ func withConfig(hostname, port string, c *Config) Gossip {
 		peers:             []string{},
 		eventClock:        make(map[string]vClock.VectorClock),
 		c:                 c,
+		newGossipPacket:   make(chan Packet),
 	}
 	return &g
 }
