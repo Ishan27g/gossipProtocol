@@ -163,8 +163,8 @@ func (g *gossip) sendGossip(gm gossipMessage) {
 }
 
 func (g *gossip) SelfAddress() string {
-	self := g.env.Hostname + g.env.UdpPort
-	return self
+	// self := g.env.Hostname + g.env.UdpPort
+	return g.env.ProcessAddress
 }
 
 // JoinWithSampling starts the gossip protocol with these initial peers. Peer sampling is done to periodically
@@ -203,15 +203,16 @@ func (g *gossip) JoinWithoutSampling(peers []string, newGossip chan Packet) {
 	// listen calls the udp server to Start and registers callbacks for incoming gossip or views from peers
 	go Listen(g.env.UdpPort, g.gossipCb, noViewExchange)
 }
-func withConfig(hostname, port string, c *Config) Gossip {
+func withConfig(hostname, port, selfAddress string, c *Config) Gossip {
 
 	g := gossip{
 		mutex:  sync.Mutex{},
 		logger: mLogger.Get(port),
 		udp:    client.GetClient(port),
 		env: EnvCfg{
-			Hostname: hostname,
-			UdpPort:  ":" + port,
+			Hostname:       hostname,
+			UdpPort:        ":" + port,
+			ProcessAddress: selfAddress,
 		},
 		receivedGossipMap: make(map[string]*Packet),
 		peerSelector:      nil,
@@ -223,16 +224,10 @@ func withConfig(hostname, port string, c *Config) Gossip {
 	return &g
 }
 
-// WithConfig returns the default gossip protocol interface after
-// sets up the provided gossip config and a default peer sampling strategy
-func WithConfig(hostname, port string, c *Config) Gossip {
-	return withConfig(hostname, port, c)
-}
-
 // DefaultConfig returns the default gossip protocol interface after
 // sets up a default gossip config with a default peer sampling strategy
-func DefaultConfig(hostname, port string) Gossip {
-	return withConfig(hostname, port, &Config{
+func DefaultConfig(hostname, port, selfAddress string) Gossip {
+	return withConfig(hostname, port, selfAddress, &Config{
 		RoundDelay:            1 * time.Second,
 		FanOut:                3,
 		MinimumPeersInNetwork: 10,

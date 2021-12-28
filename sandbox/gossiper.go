@@ -10,7 +10,7 @@ import (
 
 func exampleCustomStrategy(hostname, udp string) gossip.Gossip {
 	mLogger.New("ok", "trace")
-	g := gossip.DefaultConfig(hostname, udp) // zone 1
+	g := gossip.DefaultConfig(hostname, udp, hostname+udp) // zone 1
 
 	newGossipEvent := make(chan gossip.Packet)
 	g.JoinWithoutSampling([]string{"localhost:1001", "localhost:1002", "localhost:1003", "localhost:1004"}, newGossipEvent) // across zones

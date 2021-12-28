@@ -57,7 +57,7 @@ func TestRemove(t *testing.T) {
 }
 func mockGossipDefaultConfig(hostname, port string) mockGossip {
 	m := mockGossip{
-		g:              DefaultConfig(hostname, port),
+		g:              DefaultConfig(hostname, port, hostname+":"+port),
 		newGossipEvent: make(chan Packet),
 	}
 	self := port

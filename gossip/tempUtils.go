@@ -7,8 +7,9 @@ import (
 )
 
 type EnvCfg struct {
-	Hostname string `env:"HOST_NAME"`
-	UdpPort  string `env:"UDP_PORT,required"`
+	Hostname       string `env:"HOST_NAME"`
+	UdpPort        string `env:"UDP_PORT,required"`
+	ProcessAddress string
 }
 type Config struct {
 	RoundDelay            time.Duration // timeout between each round for a gossipMessage
