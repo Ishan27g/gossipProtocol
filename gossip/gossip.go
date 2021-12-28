@@ -100,7 +100,7 @@ func (g *gossip) startRumour(gP Packet) bool {
 	if g.receivedGossipMap[gP.GetId()] == nil {
 		newGossip = true
 		gP.AvailableAt = append(gP.AvailableAt, g.SelfAddress())
-		g.logger.Info("Received new gossip [version-" + strconv.Itoa(gP.GetVersion()) + "] " + gP.GetId() + " gossiping....✅")
+		g.logger.Trace("Received new gossip [version-" + strconv.Itoa(gP.GetVersion()) + "] " + gP.GetId() + " gossiping....✅")
 		g.mutex.Lock()
 		g.receivedGossipMap[gP.GetId()] = &gP
 		g.mutex.Unlock()
@@ -113,7 +113,7 @@ func (g *gossip) startRumour(gP Packet) bool {
 			g.mutex.Lock()
 			g.receivedGossipMap[gP.GetId()] = &gP
 			g.mutex.Unlock()
-			g.logger.Debug("gossip [version-" + strconv.Itoa(gP.GetVersion()) + "] " + gP.GetId() + " Updated locally")
+			g.logger.Trace("gossip [version-" + strconv.Itoa(gP.GetVersion()) + "] " + gP.GetId() + " Updated locally")
 		}
 	}
 	return newGossip
@@ -127,13 +127,13 @@ func (g *gossip) beginGossipRounds(gsp gossipMessage) {
 	//rounds := int(math.Ceil(math.Log10(float64(g.c.MinimumPeersInNetwork)) /
 	//	math.Log10(float64(g.c.FanOut))))
 	rounds := 2
-	g.logger.Debug("Gossip rounds - " + strconv.Itoa(rounds) + " for id - " + gsp.GossipMessageHash)
+	g.logger.Trace("Gossip rounds - " + strconv.Itoa(rounds) + " for id - " + gsp.GossipMessageHash)
 	for i := 0; i < rounds; i++ {
 		<-time.After(g.c.RoundDelay)
 		g.sendGossip(gsp)
 		gsp.Version++
 	}
-	g.logger.Debug("[Gossip ended] - " + gsp.GossipMessageHash)
+	g.logger.Trace("[Gossip ended] - " + gsp.GossipMessageHash)
 }
 
 // sendGossip sends the gossip message to FanOut number of peers
@@ -157,13 +157,13 @@ func (g *gossip) sendGossip(gm gossipMessage) {
 		return
 	}
 	for _, peer := range peers {
-		g.logger.Trace("Gossipping Id - [ " + gm.GossipMessageHash + " ] to peer - " + peer)
+		g.logger.Debug("Gossipping Id - [ " + gm.GossipMessageHash + " ] to peer - " + peer)
 		go g.udp.SendGossip(peer, gossipToByte(gm, g.SelfAddress(), clock))
 	}
 }
 
 func (g *gossip) SelfAddress() string {
-	self := g.env.Hostname + ":" + g.env.UdpPort
+	self := g.env.Hostname + g.env.UdpPort
 	return self
 }
 
@@ -211,7 +211,7 @@ func withConfig(hostname, port string, c *Config) Gossip {
 		udp:    client.GetClient(port),
 		env: EnvCfg{
 			Hostname: hostname,
-			UdpPort:  port,
+			UdpPort:  ":" + port,
 		},
 		receivedGossipMap: make(map[string]*Packet),
 		peerSelector:      nil,

@@ -1,8 +1,6 @@
 package gossip
 
 import (
-	"fmt"
-	"sync"
 	"testing"
 	"time"
 
@@ -72,34 +70,35 @@ func mockGossipDefaultConfig(hostname, port string) mockGossip {
 
 	return m
 }
-func TestGossip(t *testing.T) {
-	mLogger.New("", "off")
-	var mg []mockGossip
-	events := make(chan Packet, 4)
-	var wg sync.WaitGroup
-	for i := 0; i < len(network()); i++ {
-		m := mockGossipDefaultConfig("", network()[i])
-		mg = append(mg, m)
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			packet := <-m.newGossipEvent
-			fmt.Printf("\n["+network()[i]+"]received gossip %v\n", packet)
-			events <- packet
-		}(i)
 
-	}
-	go func() {
-		<-time.After(1 * time.Second)
-		mg[1].g.StartRumour("hello")
-	}()
-	wg.Wait()
-	close(events)
-	assert.Equal(t, 4, len(events))
-	for event := range events {
-		assert.Equal(t, "hello", event.GossipMessage.Data)
-	}
-}
+//func TestGossip(t *testing.T) {
+//	mLogger.New("", "off")
+//	var mg []mockGossip
+//	events := make(chan Packet, 4)
+//	var wg sync.WaitGroup
+//	for i := 0; i < len(network()); i++ {
+//		m := mockGossipDefaultConfig("", network()[i])
+//		mg = append(mg, m)
+//		wg.Add(1)
+//		go func(i int) {
+//			defer wg.Done()
+//			packet := <-m.newGossipEvent
+//			fmt.Printf("\n["+network()[i]+"]received gossip %v\n", packet)
+//			events <- packet
+//		}(i)
+//
+//	}
+//	go func() {
+//		<-time.After(1 * time.Second)
+//		mg[1].g.StartRumour("hello")
+//	}()
+//	wg.Wait()
+//	close(events)
+//	assert.Equal(t, 4, len(events))
+//	for event := range events {
+//		assert.Equal(t, "hello", event.GossipMessage.Data)
+//	}
+//}
 
 func setupPeers() []sampling.Sampling {
 	var peers []sampling.Sampling
