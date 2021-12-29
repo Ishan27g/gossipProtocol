@@ -13,6 +13,8 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
+var loggerOn bool
+
 type Gossip interface {
 	// JoinWithSampling starts the gossip protocol with these initial peers. Peer sampling is done to periodically
 	// maintain a partial view (subset) of the gossip network. Data is sent of the channel when gossip
@@ -29,12 +31,13 @@ type Gossip interface {
 	RemovePacket(id string) (*Packet, vClock.EventClock)
 	CurrentPeers() []string
 }
+
 type gossip struct {
 	c                 *Config       // gossip protocol configuration
 	env               EnvCfg        // env
 	udp               client.Client // udp client
-	mutex             sync.Mutex
 	logger            hclog.Logger
+	mutex             sync.Mutex
 	peerSelector      func() string
 	peers             []string
 	viewCb            func(view sampling2.View, from string) []byte
@@ -221,15 +224,16 @@ func withConfig(hostname, port, selfAddress string, c *Config) Gossip {
 		c:                 c,
 		newGossipPacket:   make(chan Packet),
 	}
+	if !loggerOn {
+		g.logger.SetLevel(hclog.Off)
+	}
 	return &g
 }
 
-// DefaultConfig returns the default gossip protocol interface after
-// sets up a default gossip config with a default peer sampling strategy
-func DefaultConfig(hostname, port, selfAddress string) Gossip {
-	return withConfig(hostname, port, selfAddress, &Config{
+func defaultConfig() *Config {
+	return &Config{
 		RoundDelay:            1 * time.Second,
 		FanOut:                3,
 		MinimumPeersInNetwork: 10,
-	})
+	}
 }

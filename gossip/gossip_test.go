@@ -56,8 +56,13 @@ func TestRemove(t *testing.T) {
 	}
 }
 func mockGossipDefaultConfig(hostname, port string) mockGossip {
+	options := Options{
+		Logger(true),
+		Env(hostname, port, hostname+port),
+	}
+
 	m := mockGossip{
-		g:              DefaultConfig(hostname, port, hostname+":"+port),
+		g:              Apply(options).New(),
 		newGossipEvent: make(chan Packet),
 	}
 	self := port
@@ -112,6 +117,7 @@ func setupPeers() []sampling.Sampling {
 }
 
 func TestGossip_JoinWithSampling(t *testing.T) {
+	t.Parallel()
 	mLogger.New("ok", "off")
 	peers := setupPeers()
 	for i := 0; i < len(peers); i++ {

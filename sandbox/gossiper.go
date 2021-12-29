@@ -10,7 +10,13 @@ import (
 
 func exampleCustomStrategy(hostname, udp string) gossip.Gossip {
 	mLogger.New("ok", "trace")
-	g := gossip.DefaultConfig(hostname, udp, hostname+udp) // zone 1
+
+	options := gossip.Options{
+		gossip.Logger(true),
+		gossip.Env(hostname, udp, hostname+udp),
+	}
+
+	g := gossip.Apply(options).New()
 
 	newGossipEvent := make(chan gossip.Packet)
 	g.JoinWithoutSampling([]string{"localhost:1001", "localhost:1002", "localhost:1003", "localhost:1004"}, newGossipEvent) // across zones
@@ -38,4 +44,5 @@ func main() {
 	g := exampleCustomStrategy(hostname, network[0])
 	g.StartRumour("hello")
 	<-make(chan bool)
+
 }
