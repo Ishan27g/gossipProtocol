@@ -86,7 +86,7 @@ func (g *gossip) gossipCb(gossip Packet, from string) []byte {
 
 // StartRumour is the equivalent of receiving a gossip message from the user. This is gossiped to peers
 func (g *gossip) StartRumour(data string) {
-	gP := newGossipMessage(data, g.SelfAddress(), nil)
+	gP := NewGossipMessage(data, g.SelfAddress(), nil)
 	gP.GossipMessage.Version++
 	g.startRumour(gP) // clock send event
 	g.newGossipPacket <- Packet{
