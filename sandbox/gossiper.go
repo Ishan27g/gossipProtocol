@@ -19,7 +19,9 @@ func exampleCustomStrategy(hostname, udp string) gossip.Gossip {
 	g := gossip.Apply(options).New()
 
 	newGossipEvent := make(chan gossip.Packet)
-	g.JoinWithoutSampling([]string{"localhost:1001", "localhost:1002", "localhost:1003", "localhost:1004"}, newGossipEvent) // across zones
+	g.JoinWithoutSampling(func() []string {
+		return []string{"localhost:1001", "localhost:1002", "localhost:1003", "localhost:1004"}
+	}, newGossipEvent) // across zones
 	// g.StartRumour("")
 
 	go func() {

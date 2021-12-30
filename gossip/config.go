@@ -6,15 +6,30 @@ import (
 	"time"
 )
 
-type EnvCfg struct {
+type envCfg struct {
 	Hostname       string `env:"HOST_NAME"`
 	UdpPort        string `env:"UDP_PORT,required"`
 	ProcessAddress string
 }
-type Config struct {
+type config struct {
 	RoundDelay            time.Duration // timeout between each round for a gossipMessage
 	FanOut                int           // num of peers to gossip a message to
 	MinimumPeersInNetwork int           // number of rounds a message is gossiped = log(minPeers/FanOut)
+}
+
+func defaultEnv(hostname string, port string, address string) envCfg {
+	return envCfg{
+		Hostname:       hostname,
+		UdpPort:        ":" + port,
+		ProcessAddress: address,
+	}
+}
+func defaultConfig() *config {
+	return &config{
+		RoundDelay:            1 * time.Second,
+		FanOut:                3,
+		MinimumPeersInNetwork: 10,
+	}
 }
 
 func hash(obj interface{}) string {

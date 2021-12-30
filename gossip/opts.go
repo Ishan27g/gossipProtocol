@@ -11,7 +11,7 @@ func (g *gossipI) New() Gossip {
 	return g.g
 }
 
-func newGossipI(hostname, port, selfAddress string, c *Config) GossipI {
+func newGossipI(hostname, port, selfAddress string, c *config) GossipI {
 	return &gossipI{g: withConfig(hostname, port, selfAddress, c)}
 }
 
@@ -31,7 +31,6 @@ func Env(hostname, port, selfAddress string) Option {
 	}
 }
 func Logger(on bool) Option {
-	return func(gI *GossipI) {
-		loggerOn = on
-	}
+	loggerOn = on
+	return func(gI *GossipI) {}
 }

@@ -11,8 +11,8 @@ import (
 )
 
 const (
-	ViewExchangeDelay = 5 * time.Second // timeout after which a View  is exchanged with a peer
-	MaxNodesInView    = 6               // max peers kept in local View TODO MaxNodesInView=6
+	ViewExchangeDelay = 10 * time.Second // timeout after which a View  is exchanged with a peer
+	MaxNodesInView    = 6                // max peers kept in local View TODO MaxNodesInView=6
 )
 
 type Sampling interface {
@@ -202,7 +202,7 @@ func (p *peerSampling) SelectPeer() string {
 func selfDescriptor(n NodeDescriptor) View {
 	return View{Nodes: sll.New(n)}
 }
-func Init(self string) Sampling {
+func Init(self string, loggerOn bool) Sampling {
 	ps := peerSampling{
 		logger:   mLogger.Get("ps-" + self),
 		wait:     ViewExchangeDelay,
@@ -216,6 +216,9 @@ func Init(self string) Sampling {
 		},
 		receivedView: make(chan passiveView),
 		udp:          client.GetClient(self),
+	}
+	if !loggerOn {
+		ps.logger.SetLevel(hclog.Off)
 	}
 	return &ps
 }

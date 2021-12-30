@@ -22,7 +22,7 @@ type Gossip interface {
 	JoinWithSampling(peers []string, newGossip chan Packet)
 	// JoinWithoutSampling starts the gossip protocol with these initial peers. Peers are iteratively selected.
 	// Data is sent of the channel when gossip is received from a peer or from the user (StartRumour)
-	JoinWithoutSampling(peers []string, newGossip chan Packet)
+	JoinWithoutSampling(peers func() []string, newGossip chan Packet)
 	// StartRumour is the equivalent of receiving a gossip message from the user. This is sent to peers
 	StartRumour(data string)
 	ReceiveGossip() chan Packet // gossip from user/peer : packet
@@ -33,13 +33,13 @@ type Gossip interface {
 }
 
 type gossip struct {
-	c                 *Config       // gossip protocol configuration
-	env               EnvCfg        // env
+	c                 *config       // gossip protocol configuration
+	env               envCfg        // env
 	udp               client.Client // udp client
 	logger            hclog.Logger
 	mutex             sync.Mutex
 	peerSelector      func() string
-	peers             []string
+	peers             func() []string
 	viewCb            func(view sampling2.View, from string) []byte
 	newGossipPacket   chan Packet                   // gossip from user/peer : packet
 	receivedGossipMap map[string]*Packet            // map of all gossip id & gossip data received
@@ -47,7 +47,7 @@ type gossip struct {
 }
 
 func (g *gossip) CurrentPeers() []string {
-	return g.peers
+	return g.peers()
 }
 
 func (g *gossip) ReceiveGossip() chan Packet {
@@ -166,7 +166,6 @@ func (g *gossip) sendGossip(gm gossipMessage) {
 }
 
 func (g *gossip) SelfAddress() string {
-	// self := g.env.Hostname + g.env.UdpPort
 	return g.env.ProcessAddress
 }
 
@@ -175,8 +174,10 @@ func (g *gossip) SelfAddress() string {
 // is received from a peer or from the user (StartRumour)
 func (g *gossip) JoinWithSampling(peers []string, newGossip chan Packet) {
 
-	ps := sampling2.Init(g.SelfAddress())
-	g.peers = peers
+	ps := sampling2.Init(g.SelfAddress(), loggerOn)
+	g.peers = func() []string {
+		return peers
+	}
 	g.peerSelector = ps.SelectPeer
 	g.viewCb = ps.ReceiveView
 
@@ -184,12 +185,14 @@ func (g *gossip) JoinWithSampling(peers []string, newGossip chan Packet) {
 	// listen calls the udp server to Start and registers callbacks for incoming gossip or views from peers
 	go Listen(g.env.UdpPort, g.gossipCb, g.viewCb)
 	// Start peer sampling and exchange views
-	go ps.Start(g.peers)
+	go ps.Start(g.CurrentPeers())
 }
 
-func (g *gossip) JoinWithoutSampling(peers []string, newGossip chan Packet) {
+func (g *gossip) JoinWithoutSampling(peersFn func() []string, newGossip chan Packet) {
 	rand.Seed(time.Now().Unix())
+	g.peers = peersFn
 	var randomPeer = func() string {
+		peers := g.CurrentPeers()
 		if len(peers) == 0 {
 			return ""
 		}
@@ -198,7 +201,6 @@ func (g *gossip) JoinWithoutSampling(peers []string, newGossip chan Packet) {
 	var noViewExchange = func(view sampling2.View, s string) []byte {
 		return []byte("never called")
 	}
-	g.peers = peers
 	g.peerSelector = randomPeer
 	g.viewCb = noViewExchange
 
@@ -206,20 +208,16 @@ func (g *gossip) JoinWithoutSampling(peers []string, newGossip chan Packet) {
 	// listen calls the udp server to Start and registers callbacks for incoming gossip or views from peers
 	go Listen(g.env.UdpPort, g.gossipCb, noViewExchange)
 }
-func withConfig(hostname, port, selfAddress string, c *Config) Gossip {
+func withConfig(hostname, port, selfAddress string, c *config) Gossip {
 
 	g := gossip{
-		mutex:  sync.Mutex{},
-		logger: mLogger.Get(port),
-		udp:    client.GetClient(port),
-		env: EnvCfg{
-			Hostname:       hostname,
-			UdpPort:        ":" + port,
-			ProcessAddress: selfAddress,
-		},
+		mutex:             sync.Mutex{},
+		logger:            mLogger.Get(port),
+		udp:               client.GetClient(port),
+		env:               defaultEnv(hostname, port, selfAddress),
 		receivedGossipMap: make(map[string]*Packet),
 		peerSelector:      nil,
-		peers:             []string{},
+		peers:             nil,
 		eventClock:        make(map[string]vClock.VectorClock),
 		c:                 c,
 		newGossipPacket:   make(chan Packet),
@@ -228,12 +226,4 @@ func withConfig(hostname, port, selfAddress string, c *Config) Gossip {
 		g.logger.SetLevel(hclog.Off)
 	}
 	return &g
-}
-
-func defaultConfig() *Config {
-	return &Config{
-		RoundDelay:            1 * time.Second,
-		FanOut:                3,
-		MinimumPeersInNetwork: 10,
-	}
 }

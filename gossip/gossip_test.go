@@ -70,7 +70,9 @@ func mockGossipDefaultConfig(hostname, port string) mockGossip {
 	for _, s := range remove(self, network()) {
 		nw = append(nw, s)
 	}
-	m.g.JoinWithoutSampling(nw, m.newGossipEvent) // across zones
+	m.g.JoinWithoutSampling(func() []string {
+		return nw
+	}, m.newGossipEvent) // across zones
 	// g.StartRumour("")
 
 	return m
@@ -108,7 +110,7 @@ func mockGossipDefaultConfig(hostname, port string) mockGossip {
 func setupPeers() []sampling.Sampling {
 	var peers []sampling.Sampling
 	for i, port := range httpPorts() {
-		peer := sampling.Init(hostname + port)
+		peer := sampling.Init(hostname+port, true)
 		go Listen(udpPort[i], nil, peer.ReceiveView)
 		peers = append(peers, peer)
 	}
