@@ -8,6 +8,8 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
+const loggerOn = false
+
 // Client is the UDP Client interface
 type Client interface {
 	// ExchangeView sends a view to this peer and returns the view of the peer
@@ -18,9 +20,13 @@ type Client interface {
 }
 
 func GetClient(todo string) Client {
-	return &udpClient{
+	u := &udpClient{
 		logger: mLogger.Get(todo + "-udp-client"),
 	}
+	if !loggerOn {
+		u.logger.SetLevel(hclog.Info)
+	}
+	return u
 }
 
 type udpClient struct {

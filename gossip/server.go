@@ -25,6 +25,9 @@ func Listen(port string, gossipCb func(Packet, string) []byte, viewCb func(sampl
 		gossipCb: gossipCb,
 		viewCb:   viewCb,
 	}
+	if !loggerOn {
+		server.logger.SetLevel(hclog.Off)
+	}
 	s, err := net.ResolveUDPAddr("udp4", port)
 	if err != nil {
 		server.logger.Error(err.Error())
