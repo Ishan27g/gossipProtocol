@@ -26,12 +26,11 @@ func defaultEnv(hostname string, port string, address string) envCfg {
 }
 func defaultConfig() *config {
 	return &config{
-		RoundDelay:            1 * time.Second,
-		FanOut:                3,
+		RoundDelay:            500 * time.Millisecond,
+		FanOut:                2,
 		MinimumPeersInNetwork: 10,
 	}
 }
-
 func hash(obj interface{}) string {
 	h := sha1.New()
 	h.Write([]byte(fmt.Sprintf("%v", obj)))

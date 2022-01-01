@@ -59,6 +59,9 @@ func mockGossipDefaultConfig(hostname, port string) mockGossip {
 	options := Options{
 		Logger(true),
 		Env(hostname, port, hostname+port),
+		Hash(func(in interface{}) string {
+			return in.(string)
+		}),
 	}
 
 	m := mockGossip{

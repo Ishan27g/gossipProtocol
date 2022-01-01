@@ -19,6 +19,7 @@ func mockView(hop int) View {
 	return View{Nodes: n}
 }
 func TestMerge(t *testing.T) {
+	t.Parallel()
 
 	lowerHop, higherHop := 0, 2
 	v1 := mockView(lowerHop)
@@ -34,18 +35,23 @@ func TestMerge(t *testing.T) {
 }
 
 func TestViewNodes(t *testing.T) {
+	t.Parallel()
 	v1 := mockView(0)
 	assert.Equal(t, v1.headNode(), "1201")
 	assert.Equal(t, v1.tailNode(), "1209")
 	assert.NotNil(t, v1.randomNode())
 }
 func TestRandomView(t *testing.T) {
+	t.Parallel()
+
 	v := mockView(0)
 	v.RandomView()
 	assert.NotNil(t, v.randomNode())
 	assert.Equal(t, MaxNodesInView, v.Nodes.Size())
 }
 func TestHeadView(t *testing.T) {
+	t.Parallel()
+
 	v := mockView(0)
 	v.headView()
 	assert.Equal(t, MaxNodesInView, v.Nodes.Size())
@@ -56,6 +62,8 @@ func TestHeadView(t *testing.T) {
 	assert.Equal(t, 0, hop)
 }
 func TestTailView(t *testing.T) {
+	t.Parallel()
+
 	v := mockView(0)
 	v.tailView()
 	v.sortByAddr()
@@ -68,6 +76,8 @@ func TestTailView(t *testing.T) {
 }
 
 func TestSerialization(t *testing.T) {
+	t.Parallel()
+
 	v := mockView(4)
 	bytes := ViewToBytes(v)
 	v2, e := BytesToView(bytes)

@@ -34,3 +34,7 @@ func Logger(on bool) Option {
 	loggerOn = on
 	return func(gI *GossipI) {}
 }
+func Hash(fn func(in interface{}) string) Option {
+	defaultHashMethod = fn
+	return func(gI *GossipI) {}
+}

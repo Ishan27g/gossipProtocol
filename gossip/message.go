@@ -42,7 +42,11 @@ func gossipToPacket(g gossipMessage, from string, clock vClock.EventClock) *Pack
 	}
 }
 func ByteToPacket(b []byte) Packet {
-	g := Packet{}
+	g := Packet{
+		AvailableAt:   []string{},
+		GossipMessage: gossipMessage{},
+		VectorClock:   vClock.EventClock{},
+	}
 	_ = json.Unmarshal(b, &g)
 	return g
 }
@@ -56,6 +60,6 @@ func NewGossipMessage(data string, from string, clock vClock.EventClock) Packet 
 		GossipMessageHash: "",
 		Version:           0,
 	}
-	g.GossipMessageHash = hash(g)
+	g.GossipMessageHash = defaultHashMethod(g.Data) // + g.CreatedAt.String()) // todo revert
 	return *gossipToPacket(g, from, clock)
 }

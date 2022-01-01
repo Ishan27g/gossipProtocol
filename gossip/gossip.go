@@ -14,6 +14,7 @@ import (
 )
 
 var loggerOn bool
+var defaultHashMethod = hash
 
 type Gossip interface {
 	// JoinWithSampling starts the gossip protocol with these initial peers. Peer sampling is done to periodically
@@ -81,7 +82,11 @@ func (g *gossip) gossipCb(gossip Packet, from string) []byte {
 	// if new id -> clock send event
 	go func() {
 		if g.startRumour(gossip) {
-			g.newGossipPacket <- gossip
+			g.newGossipPacket <- Packet{
+				AvailableAt:   gossip.AvailableAt,
+				GossipMessage: gossip.GossipMessage,
+				VectorClock:   g.eventClock[id].Get(id), // return updated clock
+			}
 		}
 	}()
 	return []byte("OKAY")
@@ -92,10 +97,11 @@ func (g *gossip) StartRumour(data string) {
 	gP := NewGossipMessage(data, g.SelfAddress(), nil)
 	gP.GossipMessage.Version++
 	g.startRumour(gP) // clock send event
+	clock := g.eventClock[gP.GetId()].Get(gP.GetId())
 	g.newGossipPacket <- Packet{
 		AvailableAt:   gP.AvailableAt,
 		GossipMessage: gP.GossipMessage,
-		VectorClock:   g.eventClock[gP.GetId()].Get(gP.GetId()), // return updated clock
+		VectorClock:   clock, // return updated clock
 	}
 }
 func (g *gossip) startRumour(gP Packet) bool {
@@ -129,7 +135,7 @@ func (g *gossip) beginGossipRounds(gsp gossipMessage) {
 	// todo revert back
 	//rounds := int(math.Ceil(math.Log10(float64(g.c.MinimumPeersInNetwork)) /
 	//	math.Log10(float64(g.c.FanOut))))
-	rounds := 2
+	rounds := 1
 	g.logger.Trace("Gossip rounds - " + strconv.Itoa(rounds) + " for id - " + gsp.GossipMessageHash)
 	for i := 0; i < rounds; i++ {
 		<-time.After(g.c.RoundDelay)
@@ -145,22 +151,24 @@ func (g *gossip) sendGossip(gm gossipMessage) {
 	for i := 1; i <= g.c.FanOut; i++ {
 		peer := g.peerSelector()
 		if peer != "" {
-			peers = append(peers, g.peerSelector())
+			peers = append(peers, peer)
 		}
 	}
 	id := gm.GossipMessageHash
 	g.mutex.Lock()
+	defer g.mutex.Unlock()
 	if g.eventClock[id] == nil {
 		g.eventClock[id] = vClock.Init(g.SelfAddress())
 	}
-	clock := g.eventClock[id].SendEvent(gm.GossipMessageHash, peers)
-	g.mutex.Unlock()
-
 	if len(peers) == 0 {
 		return
 	}
 	for _, peer := range peers {
-		g.logger.Debug("Gossipping Id - [ " + gm.GossipMessageHash + " ] to peer - " + peer)
+
+		clock := g.eventClock[id].SendEvent(id, []string{peer})
+		g.logger.Debug("Gossipping Id - [ " + id + " ] to peer - " + peer)
+		//fmt.Println("Gossipping Id - [ " + id + " ] to peer - " + peer)
+		// fmt.Println("with clock ", clock, "    ", g.eventClock[id].Get(id))
 		go g.udp.SendGossip(peer, gossipToByte(gm, g.SelfAddress(), clock))
 	}
 }
