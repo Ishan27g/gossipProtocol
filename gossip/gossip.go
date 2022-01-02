@@ -1,6 +1,7 @@
 package gossip
 
 import (
+	"fmt"
 	"math/rand"
 	"strconv"
 	"sync"
@@ -82,11 +83,8 @@ func (g *gossip) gossipCb(gossip Packet, from string) []byte {
 	// if new id -> clock send event
 	go func() {
 		if g.startRumour(gossip) {
-			g.newGossipPacket <- Packet{
-				AvailableAt:   gossip.AvailableAt,
-				GossipMessage: gossip.GossipMessage,
-				VectorClock:   g.eventClock[id].Get(id), // return updated clock
-			}
+			gossip.VectorClock = g.eventClock[id].Get(id)
+			g.newGossipPacket <- gossip
 		}
 	}()
 	return []byte("OKAY")
@@ -220,7 +218,7 @@ func withConfig(hostname, port, selfAddress string, c *config) Gossip {
 
 	g := gossip{
 		mutex:             sync.Mutex{},
-		logger:            mLogger.Get(port),
+		logger:            nil,
 		udp:               client.GetClient(port),
 		env:               defaultEnv(hostname, port, selfAddress),
 		receivedGossipMap: make(map[string]*Packet),
@@ -230,8 +228,12 @@ func withConfig(hostname, port, selfAddress string, c *config) Gossip {
 		c:                 c,
 		newGossipPacket:   make(chan Packet),
 	}
+	g.logger = mLogger.Get(port)
 	if !loggerOn {
+		fmt.Println("logger off")
 		g.logger.SetLevel(hclog.Off)
+	} else {
+		fmt.Println("logger on")
 	}
 	return &g
 }

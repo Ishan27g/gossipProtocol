@@ -27,7 +27,7 @@ func defaultEnv(hostname string, port string, address string) envCfg {
 func defaultConfig() *config {
 	return &config{
 		RoundDelay:            500 * time.Millisecond,
-		FanOut:                2,
+		FanOut:                3,
 		MinimumPeersInNetwork: 10,
 	}
 }

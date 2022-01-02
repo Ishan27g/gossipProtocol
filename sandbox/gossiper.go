@@ -4,16 +4,14 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Ishan27g/go-utils/mLogger"
 	"github.com/Ishan27gOrg/gossipProtocol/gossip"
 )
 
 func exampleCustomStrategy(hostname, udp string) gossip.Gossip {
-	mLogger.New("ok", "trace")
 
 	options := gossip.Options{
-		gossip.Logger(true),
 		gossip.Env(hostname, udp, hostname+udp),
+		gossip.Logger(true),
 	}
 
 	g := gossip.Apply(options).New()
@@ -39,6 +37,7 @@ var hostname = "localhost"
 var network = []string{"1001", "1002", "1003", "1004"}
 
 func main() {
+
 	for i := len(network) - 1; i >= 1; i-- {
 		go exampleCustomStrategy(hostname, network[i])
 	}
