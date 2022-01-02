@@ -20,40 +20,39 @@ var peers = []peer.Peer{
 func exampleCustomStrategy(index int, hostname, udp string) gossip.Gossip {
 
 	options := gossip.Options{
-		gossip.Env(hostname, udp, hostname+udp),
-		gossip.Logger(true),
+		gossip.Env(hostname, udp, peers[index].ProcessIdentifier),
+		gossip.Logger(false),
 	}
 
 	g := gossip.Apply(options).New()
 
 	newGossipEvent := make(chan gossip.Packet)
-	//g.JoinWithoutSampling(func() []peer.Peer {
-	//	var p []peer.Peer
-	//	for i := 0; i < len(peers); i++ {
-	//		if i != index {
-	//			p = append(p, peers[i])
-	//		}
-	//	}
-	//	return p
-	//}, newGossipEvent) // across zones
-	g.JoinWithSampling(peers, newGossipEvent)
-	// g.StartRumour("")
-
-	go func() {
-		for {
-			select {
-			case packet := <-newGossipEvent:
-				fmt.Printf("\nreceived gossip %v\n", packet)
+	g.JoinWithoutSampling(func() []peer.Peer {
+		var p []peer.Peer
+		for i := 0; i < len(peers); i++ {
+			if i != index {
+				p = append(p, peers[i])
 			}
 		}
-	}()
+		return p
+	}, newGossipEvent) // across zones
+	// g.JoinWithSampling(peers, newGossipEvent)
+	// g.StartRumour("")
+
+	go func(g gossip.Gossip) {
+		for {
+			packet := <-g.ReceiveGossip()
+			fmt.Printf("At [%s] received gossip %v\n", udp, packet)
+			return
+		}
+	}(g)
 	return g
 }
 
 func main() {
 
 	for i := len(network) - 1; i >= 1; i-- {
-		go exampleCustomStrategy(i, hostname, network[i])
+		exampleCustomStrategy(i, hostname, network[i])
 	}
 	<-time.After(3 * time.Second)
 	g := exampleCustomStrategy(0, hostname, network[0])

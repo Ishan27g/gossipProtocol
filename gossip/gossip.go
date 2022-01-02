@@ -79,12 +79,10 @@ func (g *gossip) gossipCb(gossip Packet, from string) []byte {
 	// from peer, clock receive event
 	g.eventClock[id].ReceiveEvent(id, gossip.VectorClock)
 
-	// if new id -> clock send event
 	go func() {
 		if g.startRumour(gossip) {
 			gossip.VectorClock = g.eventClock[id].Get(id)
 			g.newGossipPacket <- gossip
-			fmt.Println("Sent to channel---------")
 		}
 	}()
 	return []byte("OKAY")
@@ -104,7 +102,6 @@ func (g *gossip) StartRumour(data string) {
 }
 func (g *gossip) startRumour(gP Packet) bool {
 	newGossip := false
-
 	if g.receivedGossipMap[gP.GetId()] == nil {
 		newGossip = true
 		gP.AvailableAt = append(gP.AvailableAt, g.processIdentifier())
@@ -129,7 +126,7 @@ func (g *gossip) beginGossipRounds(gsp gossipMessage) {
 	// todo revert back
 	//rounds := int(math.Ceil(math.Log10(float64(g.c.MinimumPeersInNetwork)) /
 	//	math.Log10(float64(g.c.FanOut))))
-	rounds := 1
+	rounds := 2
 	g.logger.Trace("Gossip rounds - " + strconv.Itoa(rounds) + " for id - " + gsp.GossipMessageHash)
 	for i := 0; i < rounds; i++ {
 		<-time.After(g.c.RoundDelay)
@@ -148,9 +145,7 @@ selectPeers:
 		for i := 1; i <= g.c.FanOut; i++ {
 			peer := g.peerSelector()
 			if peer.UdpAddress != g.udpAddr() {
-				fmt.Println("Added peer - ", peer.UdpAddress, " at ", g.env.Hostname+g.env.UdpPort)
 				peers = append(peers, peer)
-			} else {
 			}
 			if len(peers) == g.c.FanOut {
 				break
@@ -174,7 +169,6 @@ selectPeers:
 		g.logger.Info("Gossipping Id - [ " + id + " ] to peer - " + peer.UdpAddress)
 		if g.udp.SendGossip(peer.UdpAddress, gossipToByte(gm, g.processIdentifier(), clock)) != nil {
 			g.eventClock[id] = tmp
-			fmt.Println("Sent")
 		}
 	}
 }
@@ -214,7 +208,6 @@ func (g *gossip) JoinWithoutSampling(peersFn func() []peer.Peer, newGossip chan 
 	g.peers = peersFn
 	var randomPeer = func() peer.Peer {
 		peers := g.peers()
-		fmt.Println("PEERS - ", peers)
 		if len(peers) == 0 {
 			return peers[0]
 		}
@@ -250,10 +243,7 @@ func withConfig(hostname, port, selfAddress string, c *config) Gossip {
 	}
 	g.logger = mLogger.New(port)
 	if !loggerOn {
-		fmt.Println("logger off")
 		g.logger.SetLevel(hclog.Off)
-	} else {
-		fmt.Println("logger on")
 	}
 	return &g
 }

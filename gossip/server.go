@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
-type Server struct {
+type udpServer struct {
 	logger   hclog.Logger
 	address  string
 	gossipCb func(Packet, string) []byte
@@ -20,7 +20,7 @@ type Server struct {
 // Listen starts the udp server that listens for an incoming view or gossip from peers.
 // Responds with the current view / gossip as per strategy.
 func Listen(port string, gossipCb func(Packet, string) []byte, viewCb func(sampling.View, peer.Peer) []byte) {
-	server := Server{
+	server := udpServer{
 		logger:   mLogger.Get(port + "-udp-server"),
 		address:  "",
 		gossipCb: gossipCb,
@@ -49,26 +49,26 @@ func Listen(port string, gossipCb func(Packet, string) []byte, viewCb func(sampl
 		readLen, addr, _ := connection.ReadFromUDP(buffer)
 		buffer = buffer[:readLen]
 		view, from, err := sampling.BytesToView(buffer)
-		if err == nil {
-			server.logger.Trace("Server received view " + " from: " + from.UdpAddress)
+		if from.UdpAddress != "" {
+			server.logger.Trace("udpServer received view " + " from: " + from.UdpAddress)
 			rsp := server.viewCb(view, from)
 			_, err = connection.WriteToUDP(rsp, addr)
 			if err != nil {
 				server.logger.Error(err.Error())
 				// return
 			} else {
-				server.logger.Trace("Server sent view response to: " + from.UdpAddress)
+				server.logger.Trace("udpServer sent view response to: " + from.UdpAddress)
 			}
 		} else {
-			server.logger.Trace("Server received gossip " + " from: " + addr.IP.String() + ":" + strconv.Itoa(addr.Port))
+			server.logger.Trace("udpServer received gossip " + " from: " + addr.IP.String() + ":" + strconv.Itoa(addr.Port))
 			rsp := server.gossipCb(ByteToPacket(buffer), addr.IP.String()+":"+strconv.Itoa(addr.Port))
-			server.logger.Trace("Server sending gossip response to: " + addr.String())
+			server.logger.Trace("udpServer sending gossip response to: " + addr.String())
 			_, err = connection.WriteToUDP(rsp, addr)
 			if err != nil {
 				server.logger.Error(err.Error())
 				// return
 			} else {
-				server.logger.Trace("Server sent gossip response to: " + addr.String())
+				server.logger.Trace("udpServer sent gossip response to: " + addr.String())
 			}
 		}
 	}

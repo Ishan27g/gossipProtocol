@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const gossipDelay = 500 * time.Millisecond
+
 type envConfig struct {
 	Hostname          string `env:"HOST_NAME"`
 	UdpPort           string `env:"UDP_PORT,required"`
@@ -26,7 +28,7 @@ func defaultEnv(hostname string, port string, address string) envConfig {
 }
 func defaultConfig() *config {
 	return &config{
-		RoundDelay:            500 * time.Millisecond,
+		RoundDelay:            gossipDelay,
 		FanOut:                2,
 		MinimumPeersInNetwork: 10,
 	}
