@@ -5,7 +5,9 @@ import (
 	"time"
 
 	"github.com/Ishan27g/go-utils/mLogger"
+	"github.com/Ishan27gOrg/gossipProtocol/gossip/peer"
 	"github.com/Ishan27gOrg/gossipProtocol/gossip/sampling"
+	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -16,19 +18,22 @@ var httpPort = []string{":1001", ":1002", ":1003", ":1004", ":1005", ":1006", ":
 var httpPorts = func() []string {
 	return httpPort
 }
-var udpPorts = func(exclude int) []string {
-	var ports []string
+var udpPorts = func(exclude int) []peer.Peer {
+	var ports []peer.Peer
 	for i, s := range udpPort {
 		if i == exclude {
 			continue
 		}
-		ports = append(ports, s)
+		ports = append(ports, peer.Peer{
+			UdpAddress:        s,
+			ProcessIdentifier: "PID-" + s,
+		})
 	}
 	return ports
 }
 
 var network = func() []string {
-	return []string{":1001", ":1002", ":1003", ":1004"}
+	return []string{"1001", "1002", "1003", "1004"}
 }
 
 type mockGossip struct {
@@ -55,34 +60,38 @@ func TestRemove(t *testing.T) {
 		assert.NotEqual(t, "this", s)
 	}
 }
-func mockGossipDefaultConfig(hostname, port string) mockGossip {
-	options := Options{
-		Logger(true),
-		Env(hostname, port, hostname+port),
-		Hash(func(in interface{}) string {
-			return in.(string)
-		}),
-	}
 
-	m := mockGossip{
-		g:              Apply(options).New(),
-		newGossipEvent: make(chan Packet),
-	}
-	self := port
-	var nw []string
-	for _, s := range remove(self, network()) {
-		nw = append(nw, s)
-	}
-	m.g.JoinWithoutSampling(func() []string {
-		return nw
-	}, m.newGossipEvent) // across zones
-	// g.StartRumour("")
-
-	return m
-}
-
+//
+//func mockGossipDefaultConfig(hostname, port string) mockGossip {
+//	options := Options{
+//		Logger(true),
+//		Env(hostname, port, "PID-"+port),
+//		Hash(func(in interface{}) string {
+//			return in.(string)
+//		}),
+//	}
+//
+//	m := mockGossip{
+//		g:              Apply(options).New(),
+//		newGossipEvent: make(chan Packet),
+//	}
+//	self := port
+//	var nw []peer.Peer
+//	for _, s := range remove(self, network()) {
+//		nw = append(nw, peer.Peer{
+//			UdpAddress:        s,
+//			ProcessIdentifier: s + "-ID",
+//		})
+//	}
+//	m.g.JoinWithoutSampling(func() []peer.Peer {
+//		return nw
+//	}, m.newGossipEvent) // across zones
+//	// g.StartRumour("")
+//
+//	return m
+//}
+//
 //func TestGossip(t *testing.T) {
-//	mLogger.New("", "off")
 //	var mg []mockGossip
 //	events := make(chan Packet, 4)
 //	var wg sync.WaitGroup
@@ -113,7 +122,7 @@ func mockGossipDefaultConfig(hostname, port string) mockGossip {
 func setupPeers() []sampling.Sampling {
 	var peers []sampling.Sampling
 	for i, port := range httpPorts() {
-		peer := sampling.Init(hostname+port, true)
+		peer := sampling.Init(hostname+port, "pid-"+hostname+port, true)
 		go Listen(udpPort[i], nil, peer.ReceiveView)
 		peers = append(peers, peer)
 	}
@@ -123,7 +132,7 @@ func setupPeers() []sampling.Sampling {
 
 func TestGossip_JoinWithSampling(t *testing.T) {
 	t.Parallel()
-	mLogger.New("ok", "off")
+	mLogger.Apply(mLogger.Color(false), mLogger.Level(hclog.Trace))
 	peers := setupPeers()
 	for i := 0; i < len(peers); i++ {
 		p := udpPorts(i)

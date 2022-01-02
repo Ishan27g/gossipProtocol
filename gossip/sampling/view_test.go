@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"testing"
 
+	peer2 "github.com/Ishan27gOrg/gossipProtocol/gossip/peer"
 	sll "github.com/emirpasic/gods/lists/singlylinkedlist"
 	"github.com/stretchr/testify/assert"
 )
@@ -79,11 +80,16 @@ func TestSerialization(t *testing.T) {
 	t.Parallel()
 
 	v := mockView(4)
-	bytes := ViewToBytes(v)
-	v2, e := BytesToView(bytes)
+	peer := peer2.Peer{
+		UdpAddress:        "udp",
+		ProcessIdentifier: "id",
+	}
+	bytes := ViewToBytes(v, peer)
+	v2, from, e := BytesToView(bytes)
 	assert.NoError(t, e)
 	v2.Nodes.Each(func(_ int, value interface{}) {
 		n := value.(NodeDescriptor)
 		assert.NotEqual(t, -1, v.Nodes.IndexOf(n))
 	})
+	assert.Equal(t, peer, from)
 }

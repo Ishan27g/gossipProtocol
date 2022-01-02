@@ -5,9 +5,19 @@ import (
 	"time"
 
 	"github.com/Ishan27gOrg/gossipProtocol/gossip"
+	"github.com/Ishan27gOrg/gossipProtocol/gossip/peer"
 )
 
-func exampleCustomStrategy(hostname, udp string) gossip.Gossip {
+var hostname = "localhost"
+var network = []string{"1001", "1002", "1003", "1004"}
+var peers = []peer.Peer{
+	{"localhost:" + network[0], "p1"},
+	{"localhost:" + network[1], "p2"},
+	{"localhost:" + network[2], "p3"},
+	{"localhost:" + network[3], "p4"},
+}
+
+func exampleCustomStrategy(index int, hostname, udp string) gossip.Gossip {
 
 	options := gossip.Options{
 		gossip.Env(hostname, udp, hostname+udp),
@@ -17,9 +27,16 @@ func exampleCustomStrategy(hostname, udp string) gossip.Gossip {
 	g := gossip.Apply(options).New()
 
 	newGossipEvent := make(chan gossip.Packet)
-	g.JoinWithoutSampling(func() []string {
-		return []string{"localhost:1001", "localhost:1002", "localhost:1003", "localhost:1004"}
-	}, newGossipEvent) // across zones
+	//g.JoinWithoutSampling(func() []peer.Peer {
+	//	var p []peer.Peer
+	//	for i := 0; i < len(peers); i++ {
+	//		if i != index {
+	//			p = append(p, peers[i])
+	//		}
+	//	}
+	//	return p
+	//}, newGossipEvent) // across zones
+	g.JoinWithSampling(peers, newGossipEvent)
 	// g.StartRumour("")
 
 	go func() {
@@ -33,16 +50,13 @@ func exampleCustomStrategy(hostname, udp string) gossip.Gossip {
 	return g
 }
 
-var hostname = "localhost"
-var network = []string{"1001", "1002", "1003", "1004"}
-
 func main() {
 
 	for i := len(network) - 1; i >= 1; i-- {
-		go exampleCustomStrategy(hostname, network[i])
+		go exampleCustomStrategy(i, hostname, network[i])
 	}
-	<-time.After(1 * time.Second)
-	g := exampleCustomStrategy(hostname, network[0])
+	<-time.After(3 * time.Second)
+	g := exampleCustomStrategy(0, hostname, network[0])
 	g.StartRumour("hello")
 	<-make(chan bool)
 

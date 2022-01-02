@@ -5,18 +5,27 @@ import (
 
 	"github.com/Ishan27g/go-utils/mLogger"
 	"github.com/Ishan27gOrg/gossipProtocol/gossip"
+	"github.com/Ishan27gOrg/gossipProtocol/gossip/peer"
+	"github.com/hashicorp/go-hclog"
 )
 
 func main() {
-	mLogger.New("ok", "trace")
+	mLogger.Apply(mLogger.Color(true), mLogger.Level(hclog.Trace))
+
+	mLogger.New("ok")
 	options := gossip.Options{
 		gossip.Logger(true),
 		gossip.Env("http://localhost", ":1000", "http://localhost:8001"),
 	}
-
+	var peers = []peer.Peer{
+		{"localhost:1001", "p1"},
+		{"localhost:1002", "p2"},
+		{"localhost:1003", "p3"},
+		{"localhost:1004", "p4"},
+	}
 	g := gossip.Apply(options).New()
 	newGossipEvent := make(chan gossip.Packet)
-	g.JoinWithSampling([]string{"localhost:1001", "localhost:2102", "localhost:4103", "localhost:2004"}, newGossipEvent) // across zones
+	g.JoinWithSampling(peers, newGossipEvent) // across zones
 	// g.StartRumour("")
 
 	for {

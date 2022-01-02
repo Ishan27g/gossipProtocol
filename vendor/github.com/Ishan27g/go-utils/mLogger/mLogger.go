@@ -6,8 +6,36 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
-const defaultLevel = "info"
+type LoggerI interface{}
+type loggerI struct{}
+type Option func(l *LoggerI)
+
+func Apply(options ...Option) LoggerI {
+	newLogger := func() LoggerI {
+		return &loggerI{}
+	}
+	l := newLogger()
+	for _, option := range options {
+		option(&l)
+	}
+	return l
+}
+func Level(level hclog.Level) Option {
+	return func(l *LoggerI) {
+		logLevel = level
+	}
+}
+func Color(color bool) Option {
+	return func(l *LoggerI) {
+		if !color {
+			colorOn = hclog.ColorOff
+		}
+	}
+}
+
 var once sync.Once
+var logLevel = hclog.Trace
+var colorOn = hclog.AutoColor
 
 // loggers added as Named
 var loggers map[string]hclog.Logger
@@ -24,17 +52,15 @@ func init() {
 
 // New create a new top level logger with hclog.LevelFromString
 // Subsequent modules should call Get
-func New(name, lvl string) hclog.Logger {
+func New(name string) hclog.Logger {
 	m := sync.Mutex{}
-	if lvl == ""{
-		lvl = defaultLevel
-	}
+
 	opts := hclog.LoggerOptions{
 		Name:        "[" + name + "]",
-		Level:       hclog.LevelFromString(lvl),
+		Level:       logLevel,
 		Mutex:       &m,
 		DisableTime: true,
-		Color:       hclog.AutoColor,
+		Color:       colorOn,
 	}
 	logger = hclog.New(&opts)
 	loggers[name] = hclog.New(&opts)
@@ -45,11 +71,11 @@ func New(name, lvl string) hclog.Logger {
 // returning existing one. If no top level logger exists, the first call to Get
 // creates a top level logger
 func Get(name string) hclog.Logger {
-	if logger == nil{
-		return New(name, defaultLevel)
+	if logger == nil {
+		return New(name)
 	}
 	if loggers[name] == nil {
-		loggers[name] = logger.Named(name)
+		loggers[name] = New(name)
 	}
 	return loggers[name]
 }

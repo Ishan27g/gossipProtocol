@@ -2,6 +2,7 @@ package mocks
 
 import (
 	"github.com/Ishan27gOrg/gossipProtocol/gossip"
+	"github.com/Ishan27gOrg/gossipProtocol/gossip/peer"
 	"github.com/Ishan27gOrg/gossipProtocol/gossip/sampling"
 )
 
@@ -22,7 +23,10 @@ func (ms *mockServer) MockReceiveGossip(g gossip.Packet) []byte {
 
 // MockReceiveView returns a view that a peer('s udp server) can return
 func (ms *mockServer) MockReceiveView(view sampling.View, s string) []byte {
-	return sampling.ViewToBytes(sampling.MergeView(*mockView(ms.self), view))
+	return sampling.ViewToBytes(sampling.MergeView(*mockView(ms.self), view), peer.Peer{
+		UdpAddress:        "",
+		ProcessIdentifier: "",
+	})
 }
 
 // MockServer returns an interface that mocks the udp server at this address

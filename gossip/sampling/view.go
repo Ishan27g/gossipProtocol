@@ -6,11 +6,13 @@ package sampling
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/Ishan27gOrg/gossipProtocol/gossip/peer"
 	"github.com/emirpasic/gods/containers"
 	sll "github.com/emirpasic/gods/lists/singlylinkedlist"
 	"github.com/emirpasic/gods/utils"
@@ -23,8 +25,9 @@ type View struct {
 }
 
 type NodeDescriptor struct {
-	Address string
-	Hop     int
+	Address    string
+	Identifier string
+	Hop        int
 }
 
 // increaseHopCount for each node in the View
@@ -151,6 +154,9 @@ func (v *View) tailNode() string {
 // randomNode returns a random node from the list
 func (v *View) randomNode() string {
 	rand.Seed(time.Now().Unix())
+	if v.Nodes.Size() == 0 {
+		return ""
+	}
 	node, _ := v.Nodes.Get(rand.Intn(v.Nodes.Size()))
 	return node.(NodeDescriptor).Address
 }
@@ -160,6 +166,9 @@ func (v *View) RandomView() {
 	selection := sll.New()
 	rand.Seed(time.Now().Unix())
 	for {
+		if v.Nodes.Size() == 0 {
+			return
+		}
 		node, _ := v.Nodes.Get(rand.Intn(v.Nodes.Size()))
 
 		if selection.IndexOf(node) == -1 {
@@ -201,28 +210,50 @@ func (v *View) tailView() {
 	v.sortNodes()
 }
 
-func ViewToBytes(view View) []byte {
+type data struct {
+	View    map[string]int
+	PeerUdp string
+	PeerId  string
+}
+
+func ViewToBytes(view View, from peer.Peer) []byte {
 	m := make(map[string]int)
 	for it := view.Nodes.Iterator(); it.Next(); {
 		node := it.Value().(NodeDescriptor)
 		m[node.Address] = node.Hop
 	}
-	b, _ := json.Marshal(m)
+	var data = data{
+		View:    m,
+		PeerUdp: from.UdpAddress,
+		PeerId:  from.ProcessIdentifier,
+	}
+	b, err := json.Marshal(&data)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 	return b
 }
-func BytesToView(bytes []byte) (View, error) {
+func BytesToView(bytes []byte) (View, peer.Peer, error) {
 	if bytes == nil {
-		return View{}, errors.New("empty")
+		return View{}, peer.Peer{}, errors.New("empty")
 	}
-	var m map[string]int
-	if err := json.Unmarshal(bytes, &m); err != nil {
-		return View{}, err
+	var data = data{
+		View:    make(map[string]int),
+		PeerUdp: "",
+		PeerId:  "",
+	}
+	if err := json.Unmarshal(bytes, &data); err != nil {
+		fmt.Println(err.Error())
+		return View{}, peer.Peer{}, err
 	}
 	v := View{Nodes: sll.New()}
-	for addr, hop := range m {
+	for addr, hop := range data.View {
 		v.Nodes.Add(NodeDescriptor{Address: addr, Hop: hop})
 	}
-	return v, nil
+	return v, peer.Peer{
+		UdpAddress:        data.PeerUdp,
+		ProcessIdentifier: data.PeerId,
+	}, nil
 }
 func PrintView(view View) string {
 	str := "View len - " + strconv.Itoa(view.Nodes.Size())

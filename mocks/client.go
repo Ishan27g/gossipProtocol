@@ -19,7 +19,7 @@ type mockUdpClient struct {
 
 // MockExchangeView mocks a random view response by the UDP server
 func (m *mockUdpClient) MockExchangeView(address string, v sampling.View) *sampling.View {
-	rsp, _ := sampling.BytesToView(MockServer(address).MockReceiveView(v, address)) // todo mockServer(address=port)
+	rsp, _, _ := sampling.BytesToView(MockServer(address).MockReceiveView(v, address)) // todo mockServer(address=port)
 	return &rsp
 }
 

@@ -5,7 +5,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/emirpasic/gods/lists/arraylist"
-	avl "github.com/emirpasic/gods/trees/avltree"
+	"github.com/iancoleman/orderedmap"
 )
 
 // Events : provides interface for a process with lease/leader-role
@@ -20,7 +20,7 @@ type Events interface {
 	// GetCurrentEvents returns the events currently saved. Not in order
 	GetCurrentEvents() []Event
 	// GetEventsOrder returns the eventIds ordered according to vector clock for the events
-	GetEventsOrder() (eventIdsOrHashes []string)
+	GetEventsOrder() (orderedEvents []Event)
 }
 
 func cloudEvent(id string, data EventClock) cloudevents.Event {
@@ -55,16 +55,17 @@ type Event struct {
 
 // all events
 type events struct {
-	eventClocks *avl.Tree // key = eventIdOrHash, value = EventClock
+	clocks *orderedmap.OrderedMap
 }
 
 func (e *events) GetCurrentEvents() []Event {
 	var events []Event
-	for it := e.eventClocks.Iterator(); it.Next(); {
-		clock := it.Value().(Event)
+	keys := e.clocks.Keys()
+	for _, k := range keys {
+		clock, _ := e.clocks.Get(k)
 		events = append(events, Event{
-			EventId:    it.Key().(string),
-			EventClock: clock.EventClock,
+			EventId:    k,
+			EventClock: clock.(Event).EventClock,
 		})
 	}
 	return events
@@ -109,35 +110,39 @@ func newEvent(eventIdOrHash string, v2 EventClock) Event {
 
 func (e *events) MergeEvent(ev Event) {
 	// check if present with another vectorClock
-	v1, found := e.eventClocks.Get(ev.EventId)
+	v1, found := e.clocks.Get(ev.EventId)
 	if !found {
 		// new entry
-		e.eventClocks.Put(ev.EventId, newEvent(ev.EventId, ev.EventClock))
+		e.clocks.Set(ev.EventId, newEvent(ev.EventId, ev.EventClock))
 		return
 	}
 	// get existing EventClock
 	v := v1.(Event)
+	c1 := compareClock(v.EventClock, ev.EventClock)
+	c2 := compareClock(ev.EventClock, v.EventClock)
+	if c1 && c2 { // both are same
+		return
+	}
 	// merge v1 and v2
 	v.EventClock = *v.EventClock.mergeWith(ev.EventClock)
 	// update eventClocks
-	e.eventClocks.Put(ev.EventId, v)
+	e.clocks.Set(ev.EventId, v)
 }
 
-func (e *events) GetEventsOrder() []string {
-	k := e.eventClocks.Values()
+func (e *events) GetEventsOrder() []Event {
 	a := arraylist.New()
-	for i := 0; i < len(k); i++ {
-		ec := k[i].(Event)
-		a.Add(ec)
+	keys := e.clocks.Keys()
+	for _, k := range keys {
+		clock, _ := e.clocks.Get(k)
+		a.Add(clock.(Event))
 	}
 	a.Sort(eventComparator)
-	var eventIdsOrHashes []string
+	var events []Event
 	a.Each(func(_ int, value interface{}) {
 		ec := value.(Event)
-		eventIdsOrHashes = append(eventIdsOrHashes, ec.EventId)
+		events = append(events, ec)
 	})
-
-	return eventIdsOrHashes
+	return events
 }
 
 var eventComparator = func(a, b interface{}) int {
@@ -156,7 +161,7 @@ var eventComparator = func(a, b interface{}) int {
 
 func NewEventVector() Events {
 	e := events{
-		eventClocks: avl.NewWithStringComparator(),
+		clocks: orderedmap.New(),
 	}
 	return &e
 }
