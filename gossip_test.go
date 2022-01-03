@@ -42,9 +42,6 @@ func receiveOnChannel(t *testing.T, wg *sync.WaitGroup, index int, g *Gossip) {
 			assert.NotNil(t, vc)
 			assert.NotNil(t, *p)
 			assert.Equal(t, TestData, p.GossipMessage.Data)
-			removed, nil := g.RemovePacket(packet.GetId())
-			assert.Nil(t, removed)
-			assert.Nil(t, nil)
 			return
 		}
 	}(*g, wg)
