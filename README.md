@@ -43,10 +43,41 @@ spread rumour -
       - failed peers/new peers will join raft-nw, become followers, receive the latest snapshot from leader.
       - If snapshot saves DB-commands, new peer can execute commands in order and become consistent 
 
-```shell
-cd sandbox/
-make RunVendorClean
+### Gossip Listener
+```go
+package main
+
+// Gossip is the interface to send and receive gossip messages.
+// Created from a Listener with options 
+//      minOptions := gossipProtocol.Options{
+//              gossipProtocol.Env("localhost", "1001", "p1")
+//             }
+//      listener := gossipProtocol.Apply(minOptions)
+//      gossiper := listener.New()
+
+type Gossip interface {
+    // JoinWithSampling starts the gossip protocol with these initial peers. Peer sampling is done to periodically
+    // maintain a partial view (subset) of the gossip network. Data is sent of the channel when gossip
+    // is received from a peer or from the user (StartRumour)
+    JoinWithSampling(peers []peer.Peer, newGossip chan Packet)
+    // JoinWithoutSampling starts the gossip protocol with these initial peers. Peers are iteratively selected.
+    // Data is sent of the channel when gossip is received from a peer or from the user (StartRumour)
+    JoinWithoutSampling(peers func() []peer.Peer, newGossip chan Packet)
+    // StartRumour is the equivalent of receiving a gossip message from the user. This is sent to peers
+    StartRumour(data string)
+	// ReceiveGossip gossip from the network
+    ReceiveGossip() chan Packet
+    // RemovePacket will return the packet and its latest event clock after removing it from memory
+    // Should be called a maximum of one time per packet
+    RemovePacket(id string) (*Packet, vClock.EventClock)
+	// Stop the listeners
+    Stop()
+}
+
 ```
+
+### Example
+
 ```go
 package main
 

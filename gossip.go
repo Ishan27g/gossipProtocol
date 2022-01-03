@@ -27,9 +27,8 @@ type Gossip interface {
 	StartRumour(data string)
 	ReceiveGossip() chan Packet // gossip from user/peer : packet
 	// RemovePacket will return the packet and its latest event clock after removing it from memory
-	// Should be called after Any new packet with this id will initiate a new clock
+	// Should be called a maximum of one time per packet
 	RemovePacket(id string) (*Packet, vClock.EventClock)
-	CurrentPeers() []string
 	Stop()
 }
 
@@ -52,13 +51,13 @@ func (g *gossip) Stop() {
 	g.cancel()
 }
 
-func (g *gossip) CurrentPeers() []string {
-	var udpAddresses []string
-	for _, p := range g.peers() {
-		udpAddresses = append(udpAddresses, p.UdpAddress)
-	}
-	return udpAddresses
-}
+//func (g *gossip) CurrentPeers() []string {
+//	var udpAddresses []string
+//	for _, p := range g.peers() {
+//		udpAddresses = append(udpAddresses, p.UdpAddress)
+//	}
+//	return udpAddresses
+//}
 
 func (g *gossip) ReceiveGossip() chan Packet {
 	return g.newGossipPacket
