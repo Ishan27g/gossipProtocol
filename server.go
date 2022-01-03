@@ -2,6 +2,7 @@ package gossipProtocol
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strconv"
 
@@ -47,6 +48,7 @@ func Listen(ctx context.Context, port string, gossipCb func(Packet, string) []by
 	go func() {
 		<-ctx.Done()
 		connection.Close()
+		fmt.Println("\n\n\nCLOSED")
 	}()
 
 	for {

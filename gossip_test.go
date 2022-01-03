@@ -86,6 +86,8 @@ func Test_Gossip_WithoutSampling(t *testing.T) {
 	receiveOnChannel(t, &wg, 0, &g)
 	peers = append(peers, g)
 
+	<-time.After(1 * time.Second)
+
 	g.StartRumour(TestData)
 	wg.Wait()
 	for _, p := range peers {
@@ -114,6 +116,7 @@ func Test_Gossip_WithSampling(t *testing.T) {
 	receiveOnChannel(t, &wg, 0, &g)
 	peers = append(peers, g)
 
+	<-time.After(1 * time.Second)
 	g.StartRumour(TestData)
 	wg.Wait()
 

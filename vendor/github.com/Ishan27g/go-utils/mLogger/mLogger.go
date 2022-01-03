@@ -36,6 +36,7 @@ func Color(color bool) Option {
 var once sync.Once
 var logLevel = hclog.Trace
 var colorOn = hclog.AutoColor
+var lock sync.Mutex
 
 // loggers added as Named
 var loggers map[string]hclog.Logger
@@ -45,6 +46,7 @@ var logger hclog.Logger
 
 func init() {
 	once.Do(func() {
+		lock = sync.Mutex{}
 		logger = nil // asserts New is called once
 		loggers = make(map[string]hclog.Logger)
 	})
@@ -71,6 +73,8 @@ func New(name string) hclog.Logger {
 // returning existing one. If no top level logger exists, the first call to Get
 // creates a top level logger
 func Get(name string) hclog.Logger {
+	lock.Lock()
+	defer lock.Unlock()
 	if logger == nil {
 		return New(name)
 	}

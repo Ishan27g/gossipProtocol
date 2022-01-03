@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/rand"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/Ishan27g/go-utils/mLogger"
@@ -31,6 +32,7 @@ type Sampling interface {
 }
 
 type peerSampling struct {
+	lock           sync.Mutex
 	logger         hclog.Logger
 	wait           time.Duration
 	strategy       PeerSamplingStrategy
@@ -62,7 +64,9 @@ type passiveView struct {
 
 func (p *peerSampling) ReceiveView(view View, from peer.Peer) []byte {
 	p.logger.Info("Received view from - " + from.UdpAddress + " aka " + from.ProcessIdentifier)
+	p.lock.Lock()
 	p.peers[from.UdpAddress] = from
+	p.lock.Unlock()
 	p.receivedView <- passiveView{
 		view:     view,
 		fromPeer: from.UdpAddress,
@@ -76,6 +80,8 @@ func (p *peerSampling) ReceiveView(view View, from peer.Peer) []byte {
 
 // fillView fills the current view as these peers
 func (p *peerSampling) fillView(peers ...peer.Peer) {
+	p.lock.Lock()
+	defer p.lock.Unlock()
 	for _, peer := range peers {
 		p.view.Nodes.Add(NodeDescriptor{
 			Address: peer.UdpAddress,
@@ -108,7 +114,9 @@ func (p *peerSampling) passive() {
 				rspView, from, err := BytesToView(p.udp.ExchangeView(nwPeer.UdpAddress,
 					ViewToBytes(mergedView, p.peers[p.selfIdentifier])))
 				if err == nil {
+					p.lock.Lock()
 					p.peers[from.ProcessIdentifier] = from
+					p.lock.Unlock()
 					_ = &rspView // for PUSH -> []byte("OKAY")
 				}
 			} else {
@@ -117,7 +125,9 @@ func (p *peerSampling) passive() {
 				rspView, from, err := BytesToView(p.udp.ExchangeView(nwPeer.UdpAddress,
 					ViewToBytes(View{Nodes: sll.New()}, p.peers[p.selfIdentifier])))
 				if err == nil {
+					p.lock.Lock()
 					p.peers[from.ProcessIdentifier] = from
+					p.lock.Unlock()
 					receivedView = &rspView
 					p.logger.Debug("[PT]:PULL/PUSH-PULL : receivedView from nwPeer - " +
 						nwPeer.UdpAddress)
@@ -153,7 +163,9 @@ func (p *peerSampling) active() {
 				p.logger.Trace("[AT]:PULL : sending current view merged with self descriptor to peer - " + receivedView.fromPeer)
 				view, from, err := BytesToView(p.udp.ExchangeView(receivedView.fromPeer, ViewToBytes(mergedView, p.peers[p.selfIdentifier])))
 				if err == nil {
+					p.lock.Lock()
 					p.peers[from.ProcessIdentifier] = from
+					p.lock.Unlock()
 					receivedView.view = view
 				}
 			}
@@ -196,10 +208,12 @@ func (p *peerSampling) SelectPeer() peer.Peer {
 	//if strings.Compare(address, p.selfDescriptor.address) == 0{
 	//	return p.SelectPeer()
 	//}
+	p.lock.Lock()
 	p.peers[address] = peer.Peer{
 		UdpAddress:        address,
 		ProcessIdentifier: "",
 	}
+	p.lock.Unlock()
 	return p.peers[address]
 }
 
@@ -208,6 +222,7 @@ func selfDescriptor(n NodeDescriptor) View {
 }
 func Init(self string, identifier string, loggerOn bool, strategy PeerSamplingStrategy) Sampling {
 	ps := peerSampling{
+		lock:     sync.Mutex{},
 		logger:   mLogger.Get("ps-" + self),
 		wait:     ViewExchangeDelay,
 		strategy: strategy,
@@ -226,9 +241,11 @@ func Init(self string, identifier string, loggerOn bool, strategy PeerSamplingSt
 	if !loggerOn {
 		ps.logger.SetLevel(hclog.Off)
 	}
+	ps.lock.Lock()
 	ps.peers[ps.selfIdentifier] = peer.Peer{
 		UdpAddress:        self,
 		ProcessIdentifier: identifier,
 	}
+	ps.lock.Unlock()
 	return &ps
 }

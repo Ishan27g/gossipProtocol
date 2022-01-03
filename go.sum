@@ -1,8 +1,5 @@
-github.com/Ishan27g/go-utils/mLogger v0.0.0-20211024164401-388eb1f83df4/go.mod h1:WzVBX9gkyoU43yCXo9y3vwCRvahASWxlL8oV7vDTpT0=
-github.com/Ishan27g/go-utils/mLogger v0.0.0-20211230135645-5a7e5725a982 h1:ono2lSOfR9JN/VUEpz5LGYp+b/4oGUg33Mgj7Jyy/Jg=
-github.com/Ishan27g/go-utils/mLogger v0.0.0-20211230135645-5a7e5725a982/go.mod h1:WzVBX9gkyoU43yCXo9y3vwCRvahASWxlL8oV7vDTpT0=
-github.com/Ishan27g/go-utils/rtimer v0.0.0-20220102105519-ebd3e3be9b12 h1:OCS6s/rzwbijT1mv6YumW21UnuyOod7l8LAkOY5v/qs=
-github.com/Ishan27g/go-utils/rtimer v0.0.0-20220102105519-ebd3e3be9b12/go.mod h1:ot42BwJHYoE8tG6y0DBO+l0xdN5ToYrighV18Nyqh9k=
+github.com/Ishan27g/go-utils/mLogger v0.0.0-20220102105519-ebd3e3be9b12 h1:HqWLn0hiADXLjJGkGyl1KaI0O2ahOG2UD07DJzmU2pI=
+github.com/Ishan27g/go-utils/mLogger v0.0.0-20220102105519-ebd3e3be9b12/go.mod h1:WzVBX9gkyoU43yCXo9y3vwCRvahASWxlL8oV7vDTpT0=
 github.com/cloudevents/sdk-go/v2 v2.6.0 h1:yp6zLEvhXSi6P25zzfgORgFI0quG2/NXoH9QoHzvKn8=
 github.com/cloudevents/sdk-go/v2 v2.6.0/go.mod h1:nlXhgFkf0uTopxmRXalyMwS2LG70cRGPrxzmjJgSG0U=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
