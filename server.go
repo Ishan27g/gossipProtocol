@@ -1,12 +1,13 @@
-package gossip
+package gossipProtocol
 
 import (
+	"context"
 	"net"
 	"strconv"
 
 	"github.com/Ishan27g/go-utils/mLogger"
-	"github.com/Ishan27gOrg/gossipProtocol/gossip/peer"
-	"github.com/Ishan27gOrg/gossipProtocol/gossip/sampling"
+	"github.com/Ishan27gOrg/gossipProtocol/peer"
+	"github.com/Ishan27gOrg/gossipProtocol/sampling"
 	"github.com/hashicorp/go-hclog"
 )
 
@@ -19,15 +20,16 @@ type udpServer struct {
 
 // Listen starts the udp server that listens for an incoming view or gossip from peers.
 // Responds with the current view / gossip as per strategy.
-func Listen(port string, gossipCb func(Packet, string) []byte, viewCb func(sampling.View, peer.Peer) []byte) {
+func Listen(ctx context.Context, port string, gossipCb func(Packet, string) []byte, viewCb func(sampling.View, peer.Peer) []byte) {
 	server := udpServer{
-		logger:   mLogger.Get(port + "-udp-server"),
+		logger:   nil,
 		address:  "",
 		gossipCb: gossipCb,
 		viewCb:   viewCb,
 	}
+	server.logger = mLogger.Get(port + "-udp-server")
 	if !loggerOn {
-		server.logger.SetLevel(hclog.Off)
+		server.logger.SetLevel(hclog.Error)
 	}
 	s, err := net.ResolveUDPAddr("udp4", port)
 	if err != nil {
@@ -42,11 +44,17 @@ func Listen(port string, gossipCb func(Packet, string) []byte, viewCb func(sampl
 	server.logger.Info("UDP server listening on " + connection.LocalAddr().String())
 	server.address = connection.LocalAddr().String()
 
-	defer connection.Close()
+	go func() {
+		<-ctx.Done()
+		connection.Close()
+	}()
 
 	for {
 		buffer := make([]byte, 1024)
-		readLen, addr, _ := connection.ReadFromUDP(buffer)
+		readLen, addr, e := connection.ReadFromUDP(buffer)
+		if e != nil {
+			return
+		}
 		buffer = buffer[:readLen]
 		view, from, err := sampling.BytesToView(buffer)
 		if from.UdpAddress != "" {

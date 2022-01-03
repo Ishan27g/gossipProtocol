@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Ishan27gOrg/gossipProtocol/gossip/peer"
+	"github.com/Ishan27gOrg/gossipProtocol/peer"
 	"github.com/emirpasic/gods/containers"
 	sll "github.com/emirpasic/gods/lists/singlylinkedlist"
 	"github.com/emirpasic/gods/utils"

@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"testing"
 
-	peer2 "github.com/Ishan27gOrg/gossipProtocol/gossip/peer"
+	peer2 "github.com/Ishan27gOrg/gossipProtocol/peer"
 	sll "github.com/emirpasic/gods/lists/singlylinkedlist"
 	"github.com/stretchr/testify/assert"
 )

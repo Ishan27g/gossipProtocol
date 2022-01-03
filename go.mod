@@ -10,6 +10,7 @@ replace (
 
 require (
 	github.com/Ishan27g/go-utils/mLogger v0.0.0-20211230135645-5a7e5725a982
+	github.com/Ishan27g/go-utils/rtimer v0.0.0-20220102105519-ebd3e3be9b12
 	github.com/Ishan27gOrg/vClock v0.0.0-00010101000000-000000000000
 	github.com/emirpasic/gods v1.12.0
 	github.com/hashicorp/go-hclog v1.0.0

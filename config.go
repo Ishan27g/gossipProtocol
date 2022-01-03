@@ -1,4 +1,4 @@
-package gossip
+package gossipProtocol
 
 import (
 	"crypto/sha1"
@@ -6,14 +6,12 @@ import (
 	"time"
 )
 
-const gossipDelay = 500 * time.Millisecond
-
 type envConfig struct {
 	Hostname          string `env:"HOST_NAME"`
 	UdpPort           string `env:"UDP_PORT,required"`
 	ProcessIdentifier string
 }
-type config struct {
+type Config struct {
 	RoundDelay            time.Duration // timeout between each round for a gossipMessage
 	FanOut                int           // num of peers to gossip a message to
 	MinimumPeersInNetwork int           // number of rounds a message is gossiped = log(minPeers/FanOut)
@@ -26,11 +24,12 @@ func defaultEnv(hostname string, port string, address string) envConfig {
 		ProcessIdentifier: address,
 	}
 }
-func defaultConfig() *config {
-	return &config{
+func defaultConfig() *Config {
+
+	return &Config{
 		RoundDelay:            gossipDelay,
-		FanOut:                2,
-		MinimumPeersInNetwork: 10,
+		FanOut:                fanOut,
+		MinimumPeersInNetwork: minimumPeersInNetwork,
 	}
 }
 func hash(obj interface{}) string {

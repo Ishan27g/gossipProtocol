@@ -1,4 +1,10 @@
-package gossip
+package gossipProtocol
+
+import (
+	"time"
+
+	"github.com/Ishan27gOrg/gossipProtocol/sampling"
+)
 
 type Listener interface {
 	New() Gossip
@@ -6,6 +12,17 @@ type Listener interface {
 type Option func(gI *Listener)
 type Options []Option
 
+// default vars, overwritten via options
+var loggerOn bool
+var defaultHashMethod = hash
+var defaultStrategy = sampling.DefaultStrategy()
+
+// default env
+const gossipDelay = 500 * time.Millisecond
+const fanOut = 2
+const minimumPeersInNetwork = 10
+
+// Apply a set of options to the gossip listener
 func Apply(options Options) Listener {
 	g := newGossipI("", "", "", nil)
 	for _, option := range options {
@@ -26,6 +43,10 @@ func Hash(fn func(in interface{}) string) Option {
 	defaultHashMethod = fn
 	return func(gI *Listener) {}
 }
+func Strategy(peerSelection, viewPropagation, viewSelection int) Option {
+	defaultStrategy = sampling.With(peerSelection, viewPropagation, viewSelection)
+	return func(gI *Listener) {}
+}
 
 type gossipI struct {
 	g Gossip
@@ -35,6 +56,6 @@ func (g *gossipI) New() Gossip {
 	return g.g
 }
 
-func newGossipI(hostname, port, selfAddress string, c *config) Listener {
+func newGossipI(hostname, port, selfAddress string, c *Config) Listener {
 	return &gossipI{g: withConfig(hostname, port, selfAddress, c)}
 }

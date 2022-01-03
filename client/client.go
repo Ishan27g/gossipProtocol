@@ -48,19 +48,19 @@ func (u *udpClient) SendGossip(address string, data []byte) []byte {
 	}
 
 	u.logger.Trace("Sending gossip to - " + c.RemoteAddr().String())
+	println("Sending gossip to - " + c.RemoteAddr().String())
 	defer c.Close()
 
 	_, err = c.Write(data)
 
 	if err != nil {
-		u.logger.Error("this - " + err.Error())
 		return nil
 	}
 
 	buffer := make([]byte, 1024)
 	readLen, _, err := c.ReadFromUDP(buffer)
 	if err != nil {
-		u.logger.Error("This?? " + err.Error())
+		u.logger.Error("This?? " + err.Error() + "\n for " + c.RemoteAddr().String())
 		return nil
 	}
 	buffer = buffer[:readLen]

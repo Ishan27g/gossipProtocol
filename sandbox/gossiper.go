@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Ishan27gOrg/gossipProtocol/gossip"
-	"github.com/Ishan27gOrg/gossipProtocol/gossip/peer"
+	"github.com/Ishan27gOrg/gossipProtocol"
+	"github.com/Ishan27gOrg/gossipProtocol/peer"
+	"github.com/Ishan27gOrg/gossipProtocol/sampling"
 )
 
 var hostname = "localhost"
@@ -17,16 +18,17 @@ var peers = []peer.Peer{
 	{"localhost:" + network[3], "p4"},
 }
 
-func exampleCustomStrategy(index int, hostname, udp string) gossip.Gossip {
+func exampleCustomStrategy(index int, hostname, udp string) gossipProtocol.Gossip {
 
-	options := gossip.Options{
-		gossip.Env(hostname, udp, peers[index].ProcessIdentifier),
-		gossip.Logger(false),
+	options := gossipProtocol.Options{
+		gossipProtocol.Env(hostname, udp, peers[index].ProcessIdentifier),
+		gossipProtocol.Logger(false),
+		gossipProtocol.Strategy(sampling.Random, sampling.Push, sampling.Random),
 	}
 
-	g := gossip.Apply(options).New()
+	g := gossipProtocol.Apply(options).New()
 
-	newGossipEvent := make(chan gossip.Packet)
+	newGossipEvent := make(chan gossipProtocol.Packet)
 	g.JoinWithoutSampling(func() []peer.Peer {
 		var p []peer.Peer
 		for i := 0; i < len(peers); i++ {
@@ -39,10 +41,14 @@ func exampleCustomStrategy(index int, hostname, udp string) gossip.Gossip {
 	// g.JoinWithSampling(peers, newGossipEvent)
 	// g.StartRumour("")
 
-	go func(g gossip.Gossip) {
+	go func(g gossipProtocol.Gossip) {
 		for {
 			packet := <-g.ReceiveGossip()
 			fmt.Printf("At [%s] received gossip %v\n", udp, packet)
+			p, vc := g.RemovePacket(packet.GetId())
+			fmt.Println(*p)
+			fmt.Println(vc)
+			fmt.Println(g.RemovePacket(packet.GetId()))
 			return
 		}
 	}(g)

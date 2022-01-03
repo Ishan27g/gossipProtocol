@@ -1,4 +1,4 @@
-package gossip
+package gossipProtocol
 
 import (
 	"encoding/json"
