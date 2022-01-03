@@ -65,4 +65,7 @@ func main() {
 	g.StartRumour("hello")
 	<-make(chan bool)
 
+	g.JoinWithSampling(peers, newGossipEvent)
+	g.StartRumour("")
+
 }

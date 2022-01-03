@@ -47,56 +47,61 @@ spread rumour -
 cd sandbox/
 make RunVendorClean
 ```
-
 ```go
 package main
 
 import (
-	"os"
+	"fmt"
+	"time"
 
-	"github.com/Ishan27g/go-utils/mLogger"
-	"github.com/Ishan27gOrg/gossipProtocol/gossip"
+	"github.com/Ishan27gOrg/gossipProtocol"
+	"github.com/Ishan27gOrg/gossipProtocol/peer"
+	"github.com/Ishan27gOrg/gossipProtocol/sampling"
 )
 
-func exampleDefaultStrategy(){
-	if os.Getenv("HOST_NAME") == "" || os.Getenv("UDP_PORT") == "" {
-		os.Exit(1)
+
+
+func main() {
+	// set options
+	options := gossipProtocol.Options{
+		gossipProtocol.Env("localhost", "1001", "p1"),
+		gossipProtocol.Logger(false),
+		gossipProtocol.Strategy(sampling.Random, sampling.Push, sampling.Random),
 	}
+	// init listener
+	g := gossipProtocol.Apply(options).New()
 
-	// Initialise with default strategy
-	g := gossip.Config()
+	newGossipEvent := make(chan gossipProtocol.Packet)
 
-	// send a message to network
-	// g.StartRumour("message1")
-	// send another message to network
-	// g.StartRumour("message2")
-
-	<- make(chan bool)
-}
-
-func exampleCustomStrategy(){
-	if os.Getenv("HOST_NAME") == "" || os.Getenv("UDP_PORT") == "" {
-		os.Exit(1)
+	var initialPeers = []peer.Peer{ // other peers to gossip with
+		{UdpAddress: "localhost:1002", ProcessIdentifier: "p2"},
+		{UdpAddress: "localhost:1003", ProcessIdentifier: "p3"},
+		{UdpAddress: "localhost:1004", ProcessIdentifier: "p4"},
+		{UdpAddress: "localhost:1005", ProcessIdentifier: "p5"},
+		{UdpAddress: "localhost:1006", ProcessIdentifier: "p6"},
 	}
+	// join either with peer sampling and view exchange
+	g.JoinWithSampling(initialPeers, newGossipEvent)
+	
+	// or join with static peers and no view exchange
+	// g.JoinWithoutSampling(func() []peer.Peer {
+	//	return []peer.Peer{
+	//		{UdpAddress: "localhost:1002", ProcessIdentifier: "p2"},
+	//		{UdpAddress: "localhost:1003", ProcessIdentifier: "p3"},
+	//		{UdpAddress: "localhost:1004", ProcessIdentifier: "p4"},
+	//		{UdpAddress: "localhost:1005", ProcessIdentifier: "p5"},
+	//		{UdpAddress: "localhost:1006", ProcessIdentifier: "p6"},
+	//	}
+	// }, newGossipEvent)
 
-	// set a global level to print gossip protocol logs
-	mLogger.New("gossiper", "debug")
+	g.StartRumour("gossip this")
 
-	// select a peer sampling strategy
-	peerSamplingStrategy := gossip.PeerSamplingStrategy{
-		PeerSelectionStrategy:   gossip.Random, // Random, Head, Tail
-		ViewPropagationStrategy: gossip.Push,	// Push, Pull, PushPull
-		ViewSelectionStrategy:   gossip.Random, // Random, Head, Tail
-	}
-
-	// Initialise with provided strategy
-	g := gossip.ConfigWithStrategy(&peerSamplingStrategy)
-
-	// send a message to network
-	// g.StartRumour("message1")
-	// send another message to network
-	// g.StartRumour("message2")
-
-	<- make(chan bool)
+    gossipPacket := <-g.ReceiveGossip()
+    fmt.Println("Data - ", gossipPacket.GossipMessage.Data)
+    fmt.Println("event clock for this packet - ", gossipPacket.VectorClock)
+    <-time.After(5 * time.Second)
+    samePacket, latestClock := g.RemovePacket(gossipPacket.GetId())
+    fmt.Println("Data - ", samePacket.GossipMessage.Data)
+    fmt.Println("latest event clock for this packet - ", latestClock)
 }
 ```
