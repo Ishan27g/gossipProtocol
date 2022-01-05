@@ -51,14 +51,6 @@ func (g *gossip) Stop() {
 	g.cancel()
 }
 
-//func (g *gossip) CurrentPeers() []string {
-//	var udpAddresses []string
-//	for _, p := range g.peers() {
-//		udpAddresses = append(udpAddresses, p.UdpAddress)
-//	}
-//	return udpAddresses
-//}
-
 func (g *gossip) ReceiveGossip() chan Packet {
 	return g.newGossipPacket
 }
@@ -147,23 +139,7 @@ func (g *gossip) beginGossipRounds(gsp gossipMessage) {
 
 // sendGossip sends the gossip message to FanOut number of peers
 func (g *gossip) sendGossip(gm gossipMessage) {
-	var peers []peer.Peer
-	goto selectPeers
-selectPeers:
-	{
-		for i := 1; i <= g.c.FanOut; i++ {
-			peer := g.peerSelector()
-			if peer.UdpAddress != g.udpAddr() {
-				peers = append(peers, peer)
-			}
-			if len(peers) == g.c.FanOut {
-				break
-			}
-		}
-	}
-	if len(peers) != g.c.FanOut && g.peerSelector().UdpAddress != g.udpAddr() { // only 1 peer, self
-		goto selectPeers
-	}
+	peers := g.selectGossipPeers()
 
 	id := gm.GossipMessageHash
 	if g.eventClock[id] == nil {
@@ -180,6 +156,30 @@ selectPeers:
 			g.eventClock[id] = tmp
 		}
 	}
+}
+
+func (g *gossip) selectGossipPeers() []peer.Peer {
+	var peers []peer.Peer
+	goto selectPeers
+selectPeers:
+	{
+		for i := 1; i <= g.c.FanOut; i++ {
+			peer := g.peerSelector()
+			if peer.UdpAddress == "" {
+				return nil
+			}
+			if peer.UdpAddress != g.udpAddr() {
+				peers = append(peers, peer)
+			}
+			if len(peers) == g.c.FanOut {
+				break
+			}
+		}
+	}
+	if len(peers) != g.c.FanOut && g.peerSelector().UdpAddress != g.udpAddr() { // only 1 peer, self
+		goto selectPeers
+	}
+	return peers
 }
 
 func (g *gossip) udpAddr() string {
@@ -218,7 +218,7 @@ func (g *gossip) JoinWithoutSampling(peersFn func() []peer.Peer, newGossip chan 
 	var randomPeer = func() peer.Peer {
 		peers := g.peers()
 		if len(peers) == 0 {
-			return peers[0]
+			return peer.Peer{}
 		}
 		return peers[rand.Intn(len(peers))]
 	}

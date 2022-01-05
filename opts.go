@@ -18,7 +18,7 @@ var defaultHashMethod = hash
 var defaultStrategy = sampling.DefaultStrategy()
 
 // default env
-const gossipDelay = 500 * time.Millisecond
+const gossipDelay = 50 * time.Millisecond
 const fanOut = 2
 const minimumPeersInNetwork = 10
 

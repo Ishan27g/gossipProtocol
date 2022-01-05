@@ -166,16 +166,13 @@ func (v *View) RandomView() {
 	selection := sll.New()
 	rand.Seed(time.Now().Unix())
 	for {
-		if v.Nodes.Size() == 0 {
+		if v.Nodes.Size() <= 2 {
 			return
 		}
 		node, _ := v.Nodes.Get(rand.Intn(v.Nodes.Size()))
 
 		if selection.IndexOf(node) == -1 {
-			// don't add self if present in View
-			//if strings.Compare(node.(NodeDescriptor).address, Env.envCfg.Hostname +":" + Env.envCfg.UdpPort) != 0{
 			selection.Add(node)
-			// }
 		}
 		if selection.Size() == MaxNodesInView || selection.Size() == v.Nodes.Size() { // todo v.Nodes.Size() not need
 			break
