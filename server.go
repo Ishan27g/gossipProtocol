@@ -2,7 +2,6 @@ package gossipProtocol
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"strconv"
 
@@ -48,7 +47,6 @@ func Listen(ctx context.Context, port string, gossipCb func(Packet, string) []by
 	go func() {
 		<-ctx.Done()
 		connection.Close()
-		fmt.Println("\n\n\nCLOSED")
 	}()
 
 	for {
@@ -65,7 +63,6 @@ func Listen(ctx context.Context, port string, gossipCb func(Packet, string) []by
 			_, err = connection.WriteToUDP(rsp, addr)
 			if err != nil {
 				server.logger.Error(err.Error())
-				// return
 			} else {
 				server.logger.Trace("udpServer sent view response to: " + from.UdpAddress)
 			}
@@ -76,7 +73,6 @@ func Listen(ctx context.Context, port string, gossipCb func(Packet, string) []by
 			_, err = connection.WriteToUDP(rsp, addr)
 			if err != nil {
 				server.logger.Error(err.Error())
-				// return
 			} else {
 				server.logger.Trace("udpServer sent gossip response to: " + addr.String())
 			}

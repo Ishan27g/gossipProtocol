@@ -1,22 +1,15 @@
 clean:
-	rm gossiper main
+	rm gossiper
 build:
-	go build -o gossiper gossiper.go
-	go build -o main main.go
+	go build -o example example.go
 run:
-	./main
+	./example
 runClean:
 	make clean
 	make RunBuild
-
 
 # Build and run
 RunBuild:
 	make build
 	make run
-	
-# Vendor, Clean, Build and Run
-RunVendorClean:
-	go mod tidy
-	go mod vendor
-	make runClean
+

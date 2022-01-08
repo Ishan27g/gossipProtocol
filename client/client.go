@@ -14,14 +14,13 @@ const loggerOn = false
 type Client interface {
 	// ExchangeView sends a view to this peer and returns the view of the peer
 	ExchangeView(address string, data []byte) []byte
-	// SendGossip sends the gossip message to FanOut number of peers
-	// no return is expected (todo)
+	// SendGossip sends the gossip message to FanOut number of peers, no return is expected
 	SendGossip(address string, data []byte) []byte
 }
 
-func GetClient(todo string) Client {
+func GetClient(logName string) Client {
 	u := &udpClient{
-		logger: mLogger.Get(todo + "-udp-client"),
+		logger: mLogger.Get(logName + "-udp-client"),
 	}
 	if !loggerOn {
 		u.logger.SetLevel(hclog.Info)
@@ -34,7 +33,6 @@ type udpClient struct {
 }
 
 // SendGossip sends the gossip message to FanOut number of peers
-// no return is expected (todo)
 func (u *udpClient) SendGossip(address string, data []byte) []byte {
 	s, err := net.ResolveUDPAddr("udp4", address)
 	if err != nil {
@@ -46,13 +44,10 @@ func (u *udpClient) SendGossip(address string, data []byte) []byte {
 		u.logger.Error(err.Error())
 		return nil
 	}
-
-	u.logger.Trace("Sending gossip to - " + c.RemoteAddr().String())
-	println("Sending gossip to - " + c.RemoteAddr().String())
 	defer c.Close()
+	u.logger.Trace("Sending gossip to - " + c.RemoteAddr().String())
 
 	_, err = c.Write(data)
-
 	if err != nil {
 		return nil
 	}
@@ -60,11 +55,10 @@ func (u *udpClient) SendGossip(address string, data []byte) []byte {
 	buffer := make([]byte, 1024)
 	readLen, _, err := c.ReadFromUDP(buffer)
 	if err != nil {
-		u.logger.Error("This?? " + err.Error() + "\n for " + c.RemoteAddr().String())
+		u.logger.Trace(err.Error() + "\n for " + c.RemoteAddr().String())
 		return nil
 	}
 	buffer = buffer[:readLen]
-
 	u.logger.Trace("Received gossip response from - " + c.RemoteAddr().String())
 	return buffer
 }
@@ -81,9 +75,8 @@ func (u *udpClient) ExchangeView(address string, data []byte) []byte {
 		u.logger.Error(err.Error())
 		return nil
 	}
-
-	u.logger.Trace("Sending view UDP to - " + c.RemoteAddr().String())
 	defer c.Close()
+	u.logger.Trace("Sending view UDP to - " + c.RemoteAddr().String())
 	_, err = c.Write(data)
 
 	if err != nil {

@@ -43,6 +43,10 @@ func increaseHopCount(v *View) {
 	v.sortNodes()
 }
 
+func selfDescriptor(n NodeDescriptor) View {
+	return View{Nodes: sll.New(n)}
+}
+
 // checkExists checks whether the address exists in the View
 func (v *View) checkExists(address string) (bool, int) {
 	for it := v.Nodes.Iterator(); it.Next(); {

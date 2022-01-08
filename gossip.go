@@ -33,7 +33,6 @@ type Gossip interface {
 }
 
 type gossip struct {
-	c                 *Config       // gossip protocol configuration
 	env               envConfig     // env
 	udp               client.Client // udp client
 	logger            hclog.Logger
@@ -107,6 +106,7 @@ func (g *gossip) startRumour(gP Packet) bool {
 		newGossip = true
 		gP.AvailableAt = append(gP.AvailableAt, g.processIdentifier())
 		g.logger.Trace("Received new gossip [version-" + strconv.Itoa(gP.GetVersion()) + "] " + gP.GetId() + " gossiping....✅")
+		println("Received new gossip [version-" + strconv.Itoa(gP.GetVersion()) + "] " + gP.GetId() + " gossiping....✅")
 		g.receivedGossipMap[gP.GetId()] = &gP
 		g.beginGossipRounds(gP.GossipMessage)
 	} else {
@@ -130,7 +130,7 @@ func (g *gossip) beginGossipRounds(gsp gossipMessage) {
 	rounds := 2
 	g.logger.Trace("Gossip rounds - " + strconv.Itoa(rounds) + " for id - " + gsp.GossipMessageHash)
 	for i := 0; i < rounds; i++ {
-		<-time.After(g.c.RoundDelay)
+		<-time.After(g.env.RoundDelay)
 		g.sendGossip(gsp)
 		gsp.Version++
 	}
@@ -144,9 +144,6 @@ func (g *gossip) sendGossip(gm gossipMessage) {
 	id := gm.GossipMessageHash
 	if g.eventClock[id] == nil {
 		g.eventClock[id] = vClock.Init(g.processIdentifier())
-	}
-	if len(peers) == 0 {
-		return
 	}
 	for _, peer := range peers {
 		tmp := g.eventClock[id]
@@ -163,20 +160,21 @@ func (g *gossip) selectGossipPeers() []peer.Peer {
 	goto selectPeers
 selectPeers:
 	{
-		for i := 1; i <= g.c.FanOut; i++ {
+		for i := 1; i <= g.env.FanOut; i++ {
 			peer := g.peerSelector()
+			fmt.Println(peer)
 			if peer.UdpAddress == "" {
 				return nil
 			}
 			if peer.UdpAddress != g.udpAddr() {
 				peers = append(peers, peer)
 			}
-			if len(peers) == g.c.FanOut {
+			if len(peers) == g.env.FanOut {
 				break
 			}
 		}
 	}
-	if len(peers) != g.c.FanOut && g.peerSelector().UdpAddress != g.udpAddr() { // only 1 peer, self
+	if len(peers) != g.env.FanOut && g.peerSelector().UdpAddress != g.udpAddr() { // only 1 peer, self
 		goto selectPeers
 	}
 	return peers
@@ -210,6 +208,8 @@ func (g *gossip) JoinWithSampling(peers []peer.Peer, newGossip chan Packet) {
 	go Listen(g.ctx, g.env.UdpPort, g.gossipCb, g.viewCb)
 	// Start peer sampling and exchange views
 	go ps.Start(g.ctx, g.peers())
+	<-time.After(200 * time.Millisecond)
+	fmt.Println("STARTED - ", g.udpAddr(), g.processIdentifier())
 }
 
 func (g *gossip) JoinWithoutSampling(peersFn func() []peer.Peer, newGossip chan Packet) {
@@ -237,17 +237,24 @@ func (g *gossip) JoinWithoutSampling(peersFn func() []peer.Peer, newGossip chan 
 	<-time.After(200 * time.Millisecond)
 	fmt.Println("STARTED - ", g.udpAddr(), g.processIdentifier())
 }
-func withConfig(hostname, port, selfAddress string, c *Config) Gossip {
+func withConfig(hostname, port, selfAddress string) Gossip {
 	ctx, cancel := context.WithCancel(context.Background())
+	env := envConfig{
+		Hostname:              hostname,
+		UdpPort:               ":" + port,
+		ProcessIdentifier:     selfAddress,
+		RoundDelay:            gossipDelay,
+		FanOut:                fanOut,
+		MinimumPeersInNetwork: minimumPeersInNetwork,
+	}
 	g := gossip{
 		logger:            nil,
 		udp:               client.GetClient(port),
-		env:               defaultEnv(hostname, port, selfAddress),
+		env:               env,
 		receivedGossipMap: make(map[string]*Packet),
 		peerSelector:      nil,
 		peers:             nil,
 		eventClock:        make(map[string]vClock.VectorClock),
-		c:                 c,
 		newGossipPacket:   make(chan Packet),
 		ctx:               ctx,
 		cancel:            cancel,

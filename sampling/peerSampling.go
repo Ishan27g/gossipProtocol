@@ -45,6 +45,11 @@ type peerSampling struct {
 	ctx            context.Context
 }
 
+type passiveView struct {
+	view     View
+	fromPeer string
+}
+
 func (p *peerSampling) Start(ctx context.Context, initialPeers []peer.Peer) {
 	p.ctx = ctx
 	p.logger.Trace("Starting sampling on - " + p.selfDescriptor.Address)
@@ -55,11 +60,6 @@ func (p *peerSampling) Start(ctx context.Context, initialPeers []peer.Peer) {
 	go p.active()
 	go p.passive()
 	p.logger.Trace("Started sampling on - " + p.selfDescriptor.Address)
-}
-
-type passiveView struct {
-	view     View
-	fromPeer string
 }
 
 func (p *peerSampling) ReceiveView(view View, from peer.Peer) []byte {
@@ -84,8 +84,9 @@ func (p *peerSampling) fillView(peers ...peer.Peer) {
 	defer p.lock.Unlock()
 	for _, peer := range peers {
 		p.view.Nodes.Add(NodeDescriptor{
-			Address: peer.UdpAddress,
-			Hop:     0,
+			Address:    peer.UdpAddress,
+			Hop:        0,
+			Identifier: peer.ProcessIdentifier,
 		})
 		p.peers[peer.ProcessIdentifier] = peer
 	}
@@ -205,9 +206,6 @@ func (p *peerSampling) SelectPeer() peer.Peer {
 		address = p.view.tailNode()
 	}
 	p.logger.Debug("SELECTED PEER " + address)
-	//if strings.Compare(address, p.selfDescriptor.address) == 0{
-	//	return p.SelectPeer()
-	//}
 	p.lock.Lock()
 	p.peers[address] = peer.Peer{
 		UdpAddress:        address,
@@ -217,9 +215,6 @@ func (p *peerSampling) SelectPeer() peer.Peer {
 	return p.peers[address]
 }
 
-func selfDescriptor(n NodeDescriptor) View {
-	return View{Nodes: sll.New(n)}
-}
 func Init(self string, identifier string, loggerOn bool, strategy PeerSamplingStrategy) Sampling {
 	ps := peerSampling{
 		lock:     sync.Mutex{},
@@ -230,8 +225,9 @@ func Init(self string, identifier string, loggerOn bool, strategy PeerSamplingSt
 			Nodes: sll.New(),
 		},
 		selfDescriptor: NodeDescriptor{
-			Address: self,
-			Hop:     0,
+			Address:    self,
+			Hop:        0,
+			Identifier: identifier,
 		},
 		receivedView:   make(chan passiveView),
 		udp:            client.GetClient(self),

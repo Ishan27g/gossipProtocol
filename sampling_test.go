@@ -2,6 +2,7 @@ package gossipProtocol
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -55,28 +56,31 @@ func TestRemove(t *testing.T) {
 	}
 }
 
-func setupPeers(ctx context.Context, strategy sampling.PeerSamplingStrategy) []sampling.Sampling {
-
+func setupPeers(strategy sampling.PeerSamplingStrategy) ([]sampling.Sampling, []context.Context, []context.CancelFunc) {
+	var ctxs []context.Context
+	var cans []context.CancelFunc
 	const hostname = "http://localhost"
 	var peers []sampling.Sampling
-	for i, port := range httpPorts() {
+	for i, port := range httpPort {
+		ctx, can := context.WithCancel(context.Background())
+		ctxs = append(ctxs, ctx)
+		cans = append(cans, can)
 		peer := sampling.Init(hostname+port, "pid-"+hostname+port, true, strategy)
-		go Listen(ctx, udpPort[i], nil, peer.ReceiveView)
+		go Listen(ctxs[i], udpPort[i], nil, peer.ReceiveView)
 		time.Sleep(1 * time.Second) // allow server to start
 		peers = append(peers, peer)
 	}
 	time.Sleep(1 * time.Second)
-	return peers
+	return peers, ctxs, cans
 }
 
 func TestSampling_DefaultStrategy(t *testing.T) {
 	const hostname = "http://localhost"
-	ctx, cancel := context.WithCancel(context.Background())
 	mLogger.Apply(mLogger.Color(false), mLogger.Level(hclog.Trace))
-	peers := setupPeers(ctx, sampling.DefaultStrategy())
+	peers, ctxs, cans := setupPeers(sampling.DefaultStrategy())
 	for i := 0; i < len(peers); i++ {
 		p := udpPorts(i)
-		peers[i].Start(ctx, p)
+		peers[i].Start(ctxs[i], p)
 	}
 	time.Sleep(20 * time.Second)
 	for i := 0; i < len(peers); i++ {
@@ -85,7 +89,32 @@ func TestSampling_DefaultStrategy(t *testing.T) {
 			n := value.(sampling.NodeDescriptor)
 			assert.NotEqual(t, hostname+httpPort[i], n.Address)
 		})
+		// fmt.Println(sampling.PrintView(view))
+		cans[i]()
 	}
+}
+func TestSampling_Strategy(t *testing.T) {
+	const hostname = "http://localhost"
+	mLogger.Apply(mLogger.Color(false), mLogger.Level(hclog.Trace))
 
-	cancel()
+	peers, ctxs, cans := setupPeers(sampling.With(sampling.Head, sampling.Push, sampling.Head))
+	for i := 0; i < len(peers); i++ {
+		p := udpPorts(i)
+		ctxs[i], cans[i] = context.WithCancel(context.Background())
+		peers[i].Start(ctxs[i], p)
+	}
+	time.Sleep(11 * time.Second)
+	cans[0]() // stop peer 0
+	time.Sleep(11 * time.Second)
+
+	// for all others
+	for i := 1; i < len(peers); i++ {
+		view := *peers[i].GetView()
+		view.Nodes.Each(func(index int, value interface{}) {
+			n := value.(sampling.NodeDescriptor)
+			assert.NotEqual(t, hostname+httpPort[i], n.Address)
+		})
+		fmt.Println(sampling.PrintView(view))
+		cans[i]()
+	}
 }

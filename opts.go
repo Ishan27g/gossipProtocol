@@ -1,6 +1,8 @@
 package gossipProtocol
 
 import (
+	"crypto/sha1"
+	"fmt"
 	"time"
 
 	"github.com/Ishan27gOrg/gossipProtocol/sampling"
@@ -14,17 +16,34 @@ type Options []Option
 
 // default vars, overwritten via options
 var loggerOn bool
-var defaultHashMethod = hash
 var defaultStrategy = sampling.DefaultStrategy()
+var defaultHashMethod = func(obj interface{}) string {
+	h := sha1.New()
+	h.Write([]byte(fmt.Sprintf("%v", obj)))
+	return fmt.Sprintf("%x", h.Sum(nil))
+}
 
 // default env
-const gossipDelay = 50 * time.Millisecond
+const gossipDelay = 250 * time.Millisecond
 const fanOut = 2
 const minimumPeersInNetwork = 10
 
+type envConfig struct {
+	Hostname              string `env:"HOST_NAME"`
+	UdpPort               string `env:"UDP_PORT,required"`
+	ProcessIdentifier     string
+	RoundDelay            time.Duration // timeout between each round for a gossipMessage
+	FanOut                int           // num of peers to gossip a message to
+	MinimumPeersInNetwork int           // number of rounds a message is gossiped = log(minPeers/FanOut)
+}
+
+type gossipI struct {
+	g Gossip
+}
+
 // Apply a set of options to the gossip listener
 func Apply(options Options) Listener {
-	g := newGossipI("", "", "", nil)
+	g := newGossipI("", "", "")
 	for _, option := range options {
 		option(&g)
 	}
@@ -32,7 +51,7 @@ func Apply(options Options) Listener {
 }
 func Env(hostname, port, selfAddress string) Option {
 	return func(gI *Listener) {
-		*gI = newGossipI(hostname, port, selfAddress, defaultConfig())
+		*gI = newGossipI(hostname, port, selfAddress)
 	}
 }
 func Logger(on bool) Option {
@@ -48,14 +67,10 @@ func Strategy(peerSelection, viewPropagation, viewSelection int) Option {
 	return func(gI *Listener) {}
 }
 
-type gossipI struct {
-	g Gossip
-}
-
 func (g *gossipI) New() Gossip {
 	return g.g
 }
 
-func newGossipI(hostname, port, selfAddress string, c *Config) Listener {
-	return &gossipI{g: withConfig(hostname, port, selfAddress, c)}
+func newGossipI(hostname, port, selfAddress string) Listener {
+	return &gossipI{g: withConfig(hostname, port, selfAddress)}
 }
