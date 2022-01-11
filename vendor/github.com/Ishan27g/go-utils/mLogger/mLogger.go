@@ -55,17 +55,17 @@ func init() {
 // New create a new top level logger with hclog.LevelFromString
 // Subsequent modules should call Get
 func New(name string) hclog.Logger {
-	m := sync.Mutex{}
-
 	opts := hclog.LoggerOptions{
 		Name:        "[" + name + "]",
 		Level:       logLevel,
-		Mutex:       &m,
+		Mutex:       &lock,
 		DisableTime: true,
 		Color:       colorOn,
 	}
 	logger = hclog.New(&opts)
+	lock.Lock()
 	loggers[name] = hclog.New(&opts)
+	lock.Unlock()
 	return loggers[name]
 }
 
@@ -73,13 +73,13 @@ func New(name string) hclog.Logger {
 // returning existing one. If no top level logger exists, the first call to Get
 // creates a top level logger
 func Get(name string) hclog.Logger {
-	lock.Lock()
-	defer lock.Unlock()
 	if logger == nil {
 		return New(name)
 	}
 	if loggers[name] == nil {
-		loggers[name] = New(name)
+		return New(name)
 	}
+	lock.Lock()
+	defer lock.Unlock()
 	return loggers[name]
 }

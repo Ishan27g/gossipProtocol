@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"testing"
 
-	peer2 "github.com/Ishan27gOrg/gossipProtocol/peer"
 	sll "github.com/emirpasic/gods/lists/singlylinkedlist"
 	"github.com/stretchr/testify/assert"
 )
@@ -80,7 +79,7 @@ func TestSerialization(t *testing.T) {
 	t.Parallel()
 
 	v := mockView(4)
-	peer := peer2.Peer{
+	peer := Peer{
 		UdpAddress:        "udp",
 		ProcessIdentifier: "id",
 	}

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"math/rand"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/Ishan27g/go-utils/mLogger"
 	"github.com/Ishan27gOrg/gossipProtocol/client"
-	"github.com/Ishan27gOrg/gossipProtocol/peer"
 	"github.com/Ishan27gOrg/gossipProtocol/sampling"
 	"github.com/Ishan27gOrg/vClock"
 	"github.com/hashicorp/go-hclog"
@@ -19,10 +19,10 @@ type Gossip interface {
 	// JoinWithSampling starts the gossip protocol with these initial peers. Peer sampling is done to periodically
 	// maintain a partial view (subset) of the gossip network. Data is sent of the channel when gossip
 	// is received from a peer or from the user (StartRumour)
-	JoinWithSampling(peers []peer.Peer, newGossip chan Packet)
+	JoinWithSampling(peers []sampling.Peer, newGossip chan Packet)
 	// JoinWithoutSampling starts the gossip protocol with these initial peers. Peers are iteratively selected.
 	// Data is sent of the channel when gossip is received from a peer or from the user (StartRumour)
-	JoinWithoutSampling(peers func() []peer.Peer, newGossip chan Packet)
+	JoinWithoutSampling(peers func() []sampling.Peer, newGossip chan Packet)
 	// StartRumour is the equivalent of receiving a gossip message from the user. This is sent to peers
 	StartRumour(data string)
 	ReceiveGossip() chan Packet // gossip from user/peer : packet
@@ -36,12 +36,13 @@ type gossip struct {
 	env               envConfig     // env
 	udp               client.Client // udp client
 	logger            hclog.Logger
-	peerSelector      func() peer.Peer
-	peers             func() []peer.Peer
-	viewCb            func(view sampling.View, from peer.Peer) []byte
+	peerSelector      func() sampling.Peer
+	peers             func() []sampling.Peer
+	viewCb            func(view sampling.View, from sampling.Peer) []byte
 	newGossipPacket   chan Packet                   // gossip from user/peer : packet
 	receivedGossipMap map[string]*Packet            // map of all gossip id & gossip data received
 	eventClock        map[string]vClock.VectorClock // map of gossip id & event vector clock
+	lock              sync.Mutex
 	ctx               context.Context
 	cancel            context.CancelFunc
 }
@@ -103,15 +104,19 @@ func (g *gossip) StartRumour(data string) {
 func (g *gossip) startRumour(gP Packet) bool {
 	newGossip := false
 	if g.receivedGossipMap[gP.GetId()] == nil {
+		g.logger.Trace("Received new gossip [version-" + strconv.Itoa(gP.GetVersion()) + "] " + gP.GetId())
 		newGossip = true
 		gP.AvailableAt = append(gP.AvailableAt, g.processIdentifier())
-		g.logger.Trace("Received new gossip [version-" + strconv.Itoa(gP.GetVersion()) + "] " + gP.GetId() + " gossiping....✅")
-		println("Received new gossip [version-" + strconv.Itoa(gP.GetVersion()) + "] " + gP.GetId() + " gossiping....✅")
+		g.lock.Lock()
 		g.receivedGossipMap[gP.GetId()] = &gP
+		if g.eventClock[gP.GetId()] == nil {
+			g.eventClock[gP.GetId()] = vClock.Init(g.processIdentifier())
+		}
+		g.lock.Unlock()
 		g.beginGossipRounds(gP.GossipMessage)
 	} else {
 		g.logger.Trace("Received existing gossip [version-" + strconv.Itoa(gP.GetVersion()) + "] " + gP.GetId() +
-			"checking version, not gossipping....❌")
+			"checking version, not gossipping")
 		if g.receivedGossipMap[gP.GetId()].GetVersion() < gP.GetVersion() {
 			g.receivedGossipMap[gP.GetId()] = &gP
 			g.logger.Trace("gossip [version-" + strconv.Itoa(gP.GetVersion()) + "] " + gP.GetId() + " Updated locally")
@@ -127,9 +132,9 @@ func (g *gossip) beginGossipRounds(gsp gossipMessage) {
 	// todo revert back
 	//rounds := int(math.Ceil(math.Log10(float64(g.c.MinimumPeersInNetwork)) /
 	//	math.Log10(float64(g.c.FanOut))))
-	rounds := 2
+	rounds := 3
 	g.logger.Trace("Gossip rounds - " + strconv.Itoa(rounds) + " for id - " + gsp.GossipMessageHash)
-	for i := 0; i < rounds; i++ {
+	for i := 1; i <= rounds; i++ {
 		<-time.After(g.env.RoundDelay)
 		g.sendGossip(gsp)
 		gsp.Version++
@@ -142,27 +147,26 @@ func (g *gossip) sendGossip(gm gossipMessage) {
 	peers := g.selectGossipPeers()
 
 	id := gm.GossipMessageHash
-	if g.eventClock[id] == nil {
-		g.eventClock[id] = vClock.Init(g.processIdentifier())
-	}
+
 	for _, peer := range peers {
 		tmp := g.eventClock[id]
 		clock := tmp.SendEvent(id, []string{peer.ProcessIdentifier})
 		g.logger.Info("Gossipping Id - [ " + id + " ] to peer - " + peer.UdpAddress)
 		if g.udp.SendGossip(peer.UdpAddress, gossipToByte(gm, g.processIdentifier(), clock)) != nil {
+			g.lock.Lock()
 			g.eventClock[id] = tmp
+			g.lock.Unlock()
 		}
 	}
 }
 
-func (g *gossip) selectGossipPeers() []peer.Peer {
-	var peers []peer.Peer
+func (g *gossip) selectGossipPeers() []sampling.Peer {
+	var peers []sampling.Peer
 	goto selectPeers
 selectPeers:
 	{
 		for i := 1; i <= g.env.FanOut; i++ {
 			peer := g.peerSelector()
-			fmt.Println(peer)
 			if peer.UdpAddress == "" {
 				return nil
 			}
@@ -192,13 +196,13 @@ func (g *gossip) processIdentifier() string {
 // JoinWithSampling starts the gossip protocol with these initial peers. Peer sampling is done to periodically
 // maintain a partial view (subset) of the gossip network. Data is sent of the channel when gossip
 // is received from a peer or from the user (StartRumour)
-func (g *gossip) JoinWithSampling(peers []peer.Peer, newGossip chan Packet) {
+func (g *gossip) JoinWithSampling(peers []sampling.Peer, newGossip chan Packet) {
 
 	ps := sampling.Init(g.udpAddr(), g.processIdentifier(), loggerOn, defaultStrategy)
-	g.peers = func() []peer.Peer {
+	g.peers = func() []sampling.Peer {
 		return peers
 	}
-	g.peerSelector = func() peer.Peer {
+	g.peerSelector = func() sampling.Peer {
 		return ps.SelectPeer()
 	}
 	g.viewCb = ps.ReceiveView
@@ -212,18 +216,18 @@ func (g *gossip) JoinWithSampling(peers []peer.Peer, newGossip chan Packet) {
 	fmt.Println("STARTED - ", g.udpAddr(), g.processIdentifier())
 }
 
-func (g *gossip) JoinWithoutSampling(peersFn func() []peer.Peer, newGossip chan Packet) {
+func (g *gossip) JoinWithoutSampling(peersFn func() []sampling.Peer, newGossip chan Packet) {
 	rand.Seed(time.Now().Unix())
 	g.peers = peersFn
-	var randomPeer = func() peer.Peer {
+	var randomPeer = func() sampling.Peer {
 		peers := g.peers()
 		if len(peers) == 0 {
-			return peer.Peer{}
+			return sampling.Peer{}
 		}
 		return peers[rand.Intn(len(peers))]
 	}
-	var noViewExchange = func(view sampling.View, s peer.Peer) []byte {
-		return sampling.ViewToBytes(view, peer.Peer{
+	var noViewExchange = func(view sampling.View, s sampling.Peer) []byte {
+		return sampling.ViewToBytes(view, sampling.Peer{
 			UdpAddress:        g.udpAddr(),
 			ProcessIdentifier: g.processIdentifier(),
 		})
@@ -256,6 +260,7 @@ func withConfig(hostname, port, selfAddress string) Gossip {
 		peers:             nil,
 		eventClock:        make(map[string]vClock.VectorClock),
 		newGossipPacket:   make(chan Packet),
+		lock:              sync.Mutex{},
 		ctx:               ctx,
 		cancel:            cancel,
 	}

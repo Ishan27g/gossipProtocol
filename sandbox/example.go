@@ -5,14 +5,13 @@ import (
 	"time"
 
 	"github.com/Ishan27gOrg/gossipProtocol"
-	"github.com/Ishan27gOrg/gossipProtocol/peer"
 	"github.com/Ishan27gOrg/gossipProtocol/sampling"
 )
 
 var hostname = "localhost"
 var network = []string{"1001", "1002", "1003", "1004", "1005", "1006", "1007", "1008",
 	"1009", "1010", "1011", "1012"}
-var peers = []peer.Peer{
+var peers = []sampling.Peer{
 	{hostname + ":" + network[0], "p1"},
 	{hostname + ":" + network[1], "p2"},
 	{hostname + ":" + network[2], "p3"},
@@ -63,8 +62,8 @@ func main() {
 	g := gossipProtocol.Apply(options).New()
 	newGossipEvent := make(chan gossipProtocol.Packet)
 
-	g.JoinWithoutSampling(func() []peer.Peer {
-		var p []peer.Peer
+	g.JoinWithoutSampling(func() []sampling.Peer {
+		var p []sampling.Peer
 		for i := 1; i < len(peers); i++ {
 			p = append(p, peers[i])
 		}

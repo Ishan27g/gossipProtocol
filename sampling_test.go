@@ -2,12 +2,10 @@ package gossipProtocol
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	"github.com/Ishan27g/go-utils/mLogger"
-	"github.com/Ishan27gOrg/gossipProtocol/peer"
 	"github.com/Ishan27gOrg/gossipProtocol/sampling"
 	"github.com/hashicorp/go-hclog"
 	"github.com/stretchr/testify/assert"
@@ -18,13 +16,13 @@ var httpPort = []string{":1001", ":1002", ":1003", ":1004", ":1005", ":1006", ":
 var httpPorts = func() []string {
 	return httpPort
 }
-var udpPorts = func(exclude int) []peer.Peer {
-	var ports []peer.Peer
+var udpPorts = func(exclude int) []sampling.Peer {
+	var ports []sampling.Peer
 	for i, s := range udpPort {
 		if i == exclude {
 			continue
 		}
-		ports = append(ports, peer.Peer{
+		ports = append(ports, sampling.Peer{
 			UdpAddress:        s,
 			ProcessIdentifier: "PID-" + s,
 		})
@@ -114,7 +112,7 @@ func TestSampling_Strategy(t *testing.T) {
 			n := value.(sampling.NodeDescriptor)
 			assert.NotEqual(t, hostname+httpPort[i], n.Address)
 		})
-		fmt.Println(sampling.PrintView(view))
+		// fmt.Println(sampling.PrintView(view))
 		cans[i]()
 	}
 }

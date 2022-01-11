@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Ishan27gOrg/gossipProtocol/peer"
 	"github.com/Ishan27gOrg/gossipProtocol/sampling"
 	"github.com/stretchr/testify/assert"
 )
@@ -15,7 +14,7 @@ const TestData = "hello"
 
 var hostname = "localhost"
 var network = []string{"1001", "1002", "1003", "1004"}
-var peers = []peer.Peer{
+var peers = []sampling.Peer{
 	{"localhost:" + network[0], "p1"},
 	{"localhost:" + network[1], "p2"},
 	{"localhost:" + network[2], "p3"},
@@ -48,8 +47,8 @@ func receiveOnChannel(t *testing.T, wg *sync.WaitGroup, index int, g *Gossip) {
 }
 func setupWithoutSampling(index int, g *Gossip) {
 	newGossipEvent := make(chan Packet)
-	(*g).JoinWithoutSampling(func() []peer.Peer {
-		var p []peer.Peer
+	(*g).JoinWithoutSampling(func() []sampling.Peer {
+		var p []sampling.Peer
 		for i := 0; i < len(peers); i++ {
 			if i != index {
 				p = append(p, peers[i])

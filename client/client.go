@@ -20,7 +20,8 @@ type Client interface {
 
 func GetClient(logName string) Client {
 	u := &udpClient{
-		logger: mLogger.Get(logName + "-udp-client"),
+		processName: logName,
+		logger:      mLogger.Get(logName + "-udp-client"),
 	}
 	if !loggerOn {
 		u.logger.SetLevel(hclog.Info)
@@ -29,7 +30,8 @@ func GetClient(logName string) Client {
 }
 
 type udpClient struct {
-	logger hclog.Logger
+	processName string
+	logger      hclog.Logger
 }
 
 // SendGossip sends the gossip message to FanOut number of peers
@@ -46,6 +48,7 @@ func (u *udpClient) SendGossip(address string, data []byte) []byte {
 	}
 	defer c.Close()
 	u.logger.Trace("Sending gossip to - " + c.RemoteAddr().String())
+	//println(u.processName, " Sending gossip to - "+c.RemoteAddr().String())
 
 	_, err = c.Write(data)
 	if err != nil {
@@ -77,6 +80,8 @@ func (u *udpClient) ExchangeView(address string, data []byte) []byte {
 	}
 	defer c.Close()
 	u.logger.Trace("Sending view UDP to - " + c.RemoteAddr().String())
+	//println(u.processName, " Sending view to - "+c.RemoteAddr().String())
+
 	_, err = c.Write(data)
 
 	if err != nil {

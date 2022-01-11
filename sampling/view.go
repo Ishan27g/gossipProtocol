@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Ishan27gOrg/gossipProtocol/peer"
 	"github.com/emirpasic/gods/containers"
 	sll "github.com/emirpasic/gods/lists/singlylinkedlist"
 	"github.com/emirpasic/gods/utils"
@@ -217,7 +216,7 @@ type data struct {
 	PeerId  string
 }
 
-func ViewToBytes(view View, from peer.Peer) []byte {
+func ViewToBytes(view View, from Peer) []byte {
 	m := make(map[string]int)
 	for it := view.Nodes.Iterator(); it.Next(); {
 		node := it.Value().(NodeDescriptor)
@@ -234,9 +233,9 @@ func ViewToBytes(view View, from peer.Peer) []byte {
 	}
 	return b
 }
-func BytesToView(bytes []byte) (View, peer.Peer, error) {
+func BytesToView(bytes []byte) (View, Peer, error) {
 	if bytes == nil {
-		return View{}, peer.Peer{}, errors.New("empty")
+		return View{}, Peer{}, errors.New("empty")
 	}
 	var data = data{
 		View:    make(map[string]int),
@@ -245,13 +244,13 @@ func BytesToView(bytes []byte) (View, peer.Peer, error) {
 	}
 	if err := json.Unmarshal(bytes, &data); err != nil {
 		fmt.Println(err.Error())
-		return View{}, peer.Peer{}, err
+		return View{}, Peer{}, err
 	}
 	v := View{Nodes: sll.New()}
 	for addr, hop := range data.View {
 		v.Nodes.Add(NodeDescriptor{Address: addr, Hop: hop})
 	}
-	return v, peer.Peer{
+	return v, Peer{
 		UdpAddress:        data.PeerUdp,
 		ProcessIdentifier: data.PeerId,
 	}, nil
