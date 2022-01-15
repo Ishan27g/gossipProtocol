@@ -45,33 +45,17 @@ spread rumour -
 
 ### Gossip Listener
 ```go
-package main
-
-// Gossip is the interface to send and receive gossip messages.
-// Created from a Listener with options 
-//      minOptions := gossipProtocol.Options{
-//              gossipProtocol.Env("localhost", "1001", "p1")
-//             }
-//      listener := gossipProtocol.Apply(minOptions)
-//      gossiper := listener.New()
+package gossipProtocol
 
 type Gossip interface {
-    // JoinWithSampling starts the gossip protocol with these initial peers. Peer sampling is done to periodically
-    // maintain a partial view (subset) of the gossip network. Data is sent of the channel when gossip
-    // is received from a peer or from the user (StartRumour)
-    JoinWithSampling(peers []peer.Peer, newGossip chan Packet)
-    // JoinWithoutSampling starts the gossip protocol with these initial peers. Peers are iteratively selected.
-    // Data is sent of the channel when gossip is received from a peer or from the user (StartRumour)
-    JoinWithoutSampling(peers func() []peer.Peer, newGossip chan Packet)
-    // StartRumour is the equivalent of receiving a gossip message from the user. This is sent to peers
-    StartRumour(data string)
-	// ReceiveGossip gossip from the network
-    ReceiveGossip() chan Packet
-    // RemovePacket will return the packet and its latest event clock after removing it from memory
-    // Should be called a maximum of one time per packet
-    RemovePacket(id string) (*Packet, vClock.EventClock)
-	// Stop the listeners
-    Stop()
+	// Join with some initial peers
+	Join(...Peer)
+	// Add peers
+	Add(...Peer)
+	// CurrentView returned as a String
+	CurrentView() string
+	// SendGossip  to the network
+	SendGossip(data string)
 }
 
 ```
@@ -83,56 +67,24 @@ package main
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/Ishan27gOrg/gossipProtocol"
-	"github.com/Ishan27gOrg/gossipProtocol/peer"
-	"github.com/Ishan27gOrg/gossipProtocol/sampling"
 )
 
 
 
 func main() {
-	// set options
-	options := gossipProtocol.Options{
-		gossipProtocol.Env("localhost", "1001", "p1"),
-		gossipProtocol.Logger(false),
-		gossipProtocol.Strategy(sampling.Random, sampling.Push, sampling.Random),
-	}
-	// init listener
-	g := gossipProtocol.Apply(options).New()
-
-	newGossipEvent := make(chan gossipProtocol.Packet)
-
-	var initialPeers = []peer.Peer{ // other peers to gossip with
-		{UdpAddress: "localhost:1002", ProcessIdentifier: "p2"},
-		{UdpAddress: "localhost:1003", ProcessIdentifier: "p3"},
-		{UdpAddress: "localhost:1004", ProcessIdentifier: "p4"},
-		{UdpAddress: "localhost:1005", ProcessIdentifier: "p5"},
-		{UdpAddress: "localhost:1006", ProcessIdentifier: "p6"},
-	}
-	// join either with peer sampling and view exchange
-	g.JoinWithSampling(initialPeers, newGossipEvent)
+	g, receive := gossipProtocol.Config("localhost", "8001", "p1")
+	var peers []gossipProtocol.Peer
+	peers = append(peers, gossipProtocol.Peer{UdpAddress: "localhost:8002", ProcessIdentifier: "p2"})
+	peers = append(peers, gossipProtocol.Peer{UdpAddress: "localhost:8003", ProcessIdentifier: "p3"})
+	g.Join(peers...)
 	
-	// or join with static peers and no view exchange
-	// g.JoinWithoutSampling(func() []peer.Peer {
-	//	return []peer.Peer{
-	//		{UdpAddress: "localhost:1002", ProcessIdentifier: "p2"},
-	//		{UdpAddress: "localhost:1003", ProcessIdentifier: "p3"},
-	//		{UdpAddress: "localhost:1004", ProcessIdentifier: "p4"},
-	//		{UdpAddress: "localhost:1005", ProcessIdentifier: "p5"},
-	//		{UdpAddress: "localhost:1006", ProcessIdentifier: "p6"},
-	//	}
-	// }, newGossipEvent)
-
-	g.StartRumour("gossip this")
-
-    gossipPacket := <-g.ReceiveGossip()
-    fmt.Println("Data - ", gossipPacket.GossipMessage.Data)
-    fmt.Println("event clock for this packet - ", gossipPacket.VectorClock)
-    <-time.After(5 * time.Second)
-    samePacket, latestClock := g.RemovePacket(gossipPacket.GetId())
-    fmt.Println("Data - ", samePacket.GossipMessage.Data)
-    fmt.Println("latest event clock for this packet - ", latestClock)
+	g.SendGossip("some data")
+	for{
+		gossipPacket := <-receive
+		fmt.Println("data - ", gossipPacket.GossipMessage.Data)
+		fmt.Println("event clock for this packet - ", gossipPacket.VectorClock)
+	}
 }
 ```

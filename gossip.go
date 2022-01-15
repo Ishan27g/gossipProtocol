@@ -9,10 +9,13 @@ import (
 )
 
 type Gossip interface {
+	// Join with some initial peers
 	Join(...Peer)
+	// Add peers
 	Add(...Peer)
+	// CurrentView returned as a String
 	CurrentView() string
-
+	// SendGossip  to the network
 	SendGossip(data string)
 }
 
