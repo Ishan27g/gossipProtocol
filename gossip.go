@@ -54,7 +54,7 @@ func (g *gossip) Add(peer ...Peer) {
 func (g *gossip) SendGossip(data string) {
 	gP := NewGossipMessage(data, g.env.ProcessIdentifier, nil)
 	g.lock.Lock()
-	newPacket := g.savePacket(gP)
+	newPacket := g.savePacket(&gP)
 	g.lock.Unlock()
 	if newPacket {
 
@@ -63,7 +63,7 @@ func (g *gossip) SendGossip(data string) {
 		gP.VectorClock = (*g.allEvents).Get(gP.GetId()) // update packet's clock
 		g.lock.Unlock()
 		g.gossipToUser <- gP
-		println(g.selfDescriptor.ProcessIdentifier, " Returned TO USER")
+		// println(g.selfDescriptor.ProcessIdentifier, " Returned TO USER")
 	} else {
 		println("\n\nnot possible")
 	}
@@ -72,7 +72,7 @@ func (g *gossip) SendGossip(data string) {
 // from peer
 func (g *gossip) serverCb(gP Packet, from Peer) []byte {
 	g.lock.Lock()
-	newPacket := g.savePacket(gP)
+	newPacket := g.savePacket(&gP)
 	(*g.allEvents).ReceiveEvent(gP.GetId(), gP.VectorClock)
 	g.lock.Unlock()
 
@@ -89,14 +89,15 @@ func (g *gossip) serverCb(gP Packet, from Peer) []byte {
 
 	return []byte("OKAY")
 }
-func (g *gossip) savePacket(gP Packet) bool {
+func (g *gossip) savePacket(gP *Packet) bool {
 	newGossip := false
 	if g.allGossip[gP.GetId()] == nil {
-		g.allGossip[gP.GetId()] = &gP
+		gP.AvailableAt = append(gP.AvailableAt, g.selfDescriptor.ProcessIdentifier)
+		g.allGossip[gP.GetId()] = gP
 		newGossip = true
 	} else {
 		if g.allGossip[gP.GetId()].GetVersion() < gP.GetVersion() {
-			g.allGossip[gP.GetId()] = &gP
+			g.allGossip[gP.GetId()] = gP
 		}
 	}
 	return newGossip

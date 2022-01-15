@@ -5,8 +5,3 @@ type Peer struct {
 	ProcessIdentifier string
 	Hop               int
 }
-
-type passiveView struct {
-	view View
-	from Peer
-}

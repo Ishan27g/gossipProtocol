@@ -1,7 +1,6 @@
 package gossipProtocol
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -43,7 +42,6 @@ func Test_Gossip(t *testing.T) {
 	var data = "some data"
 	var numProcesses = 10
 	processes := setupGossipProcesses("90", numProcesses)
-	fmt.Println(processes)
 	processes[0].gossip.SendGossip(data)
 
 	<-time.After(1 * time.Second)

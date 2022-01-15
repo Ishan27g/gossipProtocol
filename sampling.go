@@ -71,8 +71,8 @@ func (s *sampling) removePeer(peer Peer) {
 	// defer s.lock.Unlock()
 	s.view.remove(peer)
 	delete(s.knownPeers, peer.ProcessIdentifier)
-	println(s.selfDescriptor.ProcessIdentifier, " - Removed peer from view - ", peer.ProcessIdentifier)
-	println(s.selfDescriptor.ProcessIdentifier, PrintView(s.view))
+	// println(s.selfDescriptor.ProcessIdentifier, " - Removed peer from view - ", peer.ProcessIdentifier)
+	// println(s.selfDescriptor.ProcessIdentifier, PrintView(s.view))
 }
 func (s *sampling) selectView(view *View) {
 	switch s.strategy.ViewSelectionStrategy {
@@ -128,7 +128,7 @@ func (s *sampling) passive() {
 					s.selectView(&mergedView)
 				}
 			}
-			println(s.selfDescriptor.ProcessIdentifier, "END - ", PrintView(s.view))
+			//println(s.selfDescriptor.ProcessIdentifier, "END - ", PrintView(s.view))
 		}
 	}
 }
@@ -143,7 +143,7 @@ func (s *sampling) ViewFromPeer(receivedView View, peer Peer) []byte {
 	}
 	merged := mergeViewExcludeNode(s.view, receivedView, s.selfDescriptor)
 	s.selectView(&merged)
-	println("After receiving view, current view is - ", PrintView(s.view))
+	// println("After receiving view, current view is - ", PrintView(s.view))
 	return rsp // empty incase of PUSH
 }
 
