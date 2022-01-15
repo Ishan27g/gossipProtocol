@@ -31,7 +31,6 @@ type sampling struct {
 	view           View
 	selfDescriptor Peer
 	knownPeers     map[string]Peer
-	viewFromPeer   chan passiveView
 	udpClient      client
 
 	previousPeer Peer
@@ -47,7 +46,6 @@ func (s *sampling) Size() int {
 	return s.view.Nodes.Size()
 }
 func (s *sampling) Start() {
-	go s.active()
 	go s.passive()
 }
 func (s *sampling) SetInitialPeers(initialPeers ...Peer) {
@@ -87,32 +85,6 @@ func (s *sampling) selectView(view *View) {
 	}
 
 	s.view = mergeViewExcludeNode(*view, *view, s.selfDescriptor)
-}
-
-func (s *sampling) active() {
-	for {
-		select {
-		case <-s.ctx.Done():
-			return
-		case receivedView := <-s.viewFromPeer: // wait to receive a view
-
-			increaseHopCount(&receivedView.view)
-			if s.strategy.ViewPropagationStrategy == Pull {
-				mergedView := MergeView(receivedView.view, selfDescriptor(s.selfDescriptor))
-				// send mergedView to peer, receive Ok or view
-				view, from, err := BytesToView(s.udpClient.send(receivedView.from.UdpAddress,
-					ViewToBytes(mergedView, s.knownPeers[s.selfDescriptor.ProcessIdentifier])))
-				if err == nil {
-					s.knownPeers[from.ProcessIdentifier] = from
-					receivedView.view = view
-				}
-			}
-			receivedView.view = mergeViewExcludeNode(s.view, receivedView.view, s.selfDescriptor)
-			s.selectView(&receivedView.view)
-
-			//println(s.selfDescriptor.ProcessIdentifier, " [PT]  : ", PrintView(s.view))
-		}
-	}
 }
 
 func (s *sampling) passive() {
@@ -240,7 +212,6 @@ func initSampling(udpAddress string, identifier string, strategy PeerSamplingStr
 			ProcessIdentifier: identifier,
 		},
 		knownPeers:   make(map[string]Peer),
-		viewFromPeer: make(chan passiveView),
 		udpClient:    getClient(identifier),
 		previousPeer: Peer{},
 	}

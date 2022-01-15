@@ -39,7 +39,7 @@ func (g *gossip) CurrentView() string {
 
 func (g *gossip) Join(initialPeers ...Peer) {
 	g.sampling.SetInitialPeers(initialPeers...)
-	// g.sampling.Start()
+	g.sampling.Start()
 
 	go Listen(g.ctx, g.env.UdpPort, g.serverCb, g.sampling.ViewFromPeer)
 }
