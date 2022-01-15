@@ -186,7 +186,9 @@ func (v *View) randomNode() Peer {
 
 // RandomView sets the current View as a random subset of current View
 func (v *View) RandomView() {
-
+	if v.Nodes.Size() == 0 {
+		return
+	}
 	selection := sll.New()
 	for {
 		node, _ := v.Nodes.Get(rand.Intn(v.Nodes.Size()))

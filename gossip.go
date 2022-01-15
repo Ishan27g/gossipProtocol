@@ -33,7 +33,7 @@ type gossip struct {
 	allEvents *vClock.VectorClock
 
 	gossipToUser chan Packet
-	sentToPeers  []Peer // todo remove
+	// sentToPeers  []Peer // todo remove
 }
 
 func (g *gossip) CurrentView() string {
@@ -50,17 +50,18 @@ func (g *gossip) Add(peer ...Peer) {
 	g.sampling.AddPeer(peer...)
 }
 
-// from User
+// SendGossip from User to the network
 func (g *gossip) SendGossip(data string) {
-	// g.lock.Lock()
-	// defer g.lock.Unlock()
-
 	gP := NewGossipMessage(data, g.env.ProcessIdentifier, nil)
+	g.lock.Lock()
 	newPacket := g.savePacket(gP)
+	g.lock.Unlock()
 	if newPacket {
 
 		g.gossip(gP.GossipMessage, g.selfDescriptor)
+		g.lock.Lock()
 		gP.VectorClock = (*g.allEvents).Get(gP.GetId()) // update packet's clock
+		g.lock.Unlock()
 		g.gossipToUser <- gP
 		println(g.selfDescriptor.ProcessIdentifier, " Returned TO USER")
 	} else {
@@ -70,15 +71,19 @@ func (g *gossip) SendGossip(data string) {
 
 // from peer
 func (g *gossip) serverCb(gP Packet, from Peer) []byte {
+	g.lock.Lock()
 	newPacket := g.savePacket(gP)
 	(*g.allEvents).ReceiveEvent(gP.GetId(), gP.VectorClock)
+	g.lock.Unlock()
 
 	go func() {
 		if newPacket {
 			g.gossip(gP.GossipMessage, from)
+			g.lock.Lock()
 			gP.VectorClock = (*g.allEvents).Get(gP.GetId()) // update packet's clock
+			g.lock.Unlock()
 			g.gossipToUser <- gP
-			println(g.selfDescriptor.ProcessIdentifier, " SENT TO USER")
+			// println(g.selfDescriptor.ProcessIdentifier, " SENT TO USER")
 		}
 	}()
 
@@ -86,7 +91,6 @@ func (g *gossip) serverCb(gP Packet, from Peer) []byte {
 }
 func (g *gossip) savePacket(gP Packet) bool {
 	newGossip := false
-
 	if g.allGossip[gP.GetId()] == nil {
 		g.allGossip[gP.GetId()] = &gP
 		newGossip = true
@@ -104,7 +108,7 @@ func (g *gossip) gossip(gm gossipMessage, exclude Peer) {
 		if g.sampling.Size() == 0 {
 			return
 		}
-		g.sentToPeers = nil
+		//	g.sentToPeers = nil
 		g.fanOut(gm, exclude)
 		gm.Version++
 
@@ -123,18 +127,24 @@ func (g *gossip) fanOut(gm gossipMessage, exclude Peer) {
 	for i := 0; i < g.env.FanOut; i++ {
 		peer := g.sampling.GetPeer(exclude)
 		if peer.UdpAddress != "" && peer.ProcessIdentifier != g.selfDescriptor.ProcessIdentifier {
+			g.lock.Lock()
 			tmp := vClock.Copy(*g.allEvents)
-
 			clock := tmp.SendEvent(id, []string{peer.ProcessIdentifier})
 			// println("Gossippinnnng Id - [ " + id + " ] to peer - " + peer.UdpAddress)
-			buffer := gossipToByte(gm, Peer(g.selfDescriptor), clock)
+			buffer := gossipToByte(gm, g.selfDescriptor, clock)
+			g.lock.Unlock()
 			if g.udpClient.send(peer.UdpAddress, buffer) != nil {
+				g.lock.Lock()
 				*g.allEvents = tmp
-				g.sentToPeers = append(g.sentToPeers, peer)
+				g.lock.Unlock()
+				//	g.sentToPeers = append(g.sentToPeers, peer)
 			} else {
 				g.sampling.removePeer(peer)
+				g.lock.Lock()
 				(*g.allEvents).SendEvent(id, nil)
+				g.lock.Unlock()
 			}
+
 		}
 	}
 }
@@ -156,7 +166,7 @@ func Config(hostname string, port string, id string) (Gossip, <-chan Packet) {
 		allEvents:    new(vClock.VectorClock),
 		gossipToUser: make(chan Packet, 100),
 		sampling:     initSampling(hostname, id, defaultStrategy),
-		sentToPeers:  []Peer{},
+		//sentToPeers:  []Peer{},
 	}
 	*g.allEvents = vClock.Init(id)
 	return &g, g.gossipToUser

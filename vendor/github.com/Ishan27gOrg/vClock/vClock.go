@@ -41,7 +41,11 @@ func (v *vClock) get() (string, map[string]EventClock) {
 
 type peerClock map[string]*int
 
+var peerLock = sync.Mutex{}
+
 func (p peerClock) add(peer string) bool {
+	peerLock.Lock()
+	defer peerLock.Unlock()
 	if p.get(peer) == -1 {
 		p[peer] = new(int)
 		*p[peer] = 0
@@ -62,6 +66,8 @@ func (p peerClock) get(peer string) int {
 }
 
 func (p peerClock) updateTo(address string, clock int) {
+	peerLock.Lock()
+	defer peerLock.Unlock()
 	*p[address] = clock
 }
 func (v *vClock) Clear(eventIdOrHash string) {

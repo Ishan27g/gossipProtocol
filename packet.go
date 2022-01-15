@@ -2,6 +2,7 @@ package gossipProtocol
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/Ishan27gOrg/vClock"
@@ -9,14 +10,14 @@ import (
 
 // Packet exchanged between peers
 type Packet struct {
-	AvailableAt   []string // at which addresses the data is available
-	GossipMessage gossipMessage
-	VectorClock   vClock.EventClock
+	AvailableAt   []string          `json:"AvailableAt"` // at which addresses the data is available
+	GossipMessage gossipMessage     `json:"GossipMessage"`
+	VectorClock   vClock.EventClock `json:"VectorClock"`
 }
 
 type udpGossip struct {
-	Packet Packet
-	From   Peer
+	Packet Packet `json:"Packet"`
+	From   Peer   `json:"From"`
 }
 
 func packetToUdp(packet Packet, from Peer) udpGossip {
@@ -45,7 +46,10 @@ func (p *Packet) GetData() string {
 func gossipToByte(g gossipMessage, from Peer, clock vClock.EventClock) []byte {
 	packet := gossipToPacket(g, from.ProcessIdentifier, clock)
 	udp := packetToUdp(*packet, from)
-	b, _ := json.Marshal(&udp)
+	b, e := json.Marshal(&udp)
+	if e != nil {
+		fmt.Println("gossipToByte ", e.Error())
+	}
 	return b
 }
 
