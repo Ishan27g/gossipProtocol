@@ -82,6 +82,6 @@ func NewGossipMessage(data string, from string, clock vClock.EventClock) Packet 
 		GossipMessageHash: "",
 		Version:           0,
 	}
-	g.GossipMessageHash = defaultHashMethod(g.Data + g.CreatedAt.GoString())
+	g.GossipMessageHash = defaultHashMethod(g.Data + g.CreatedAt.String())
 	return *gossipToPacket(g, from, clock)
 }
