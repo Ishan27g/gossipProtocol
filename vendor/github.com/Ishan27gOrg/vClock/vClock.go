@@ -18,6 +18,7 @@ type VectorClock interface {
 	// ReceiveEvent updates the current vector clock using element wise maximum with the passed vector clock
 	ReceiveEvent(eventIdOrHash string, v EventClock)
 	Clear(eventIdOrHash string)
+	get() (string, map[string]EventClock)
 	print()
 }
 
@@ -33,17 +34,25 @@ type vClock struct {
 	self        string
 	vectorClock map[string]EventClock // clock per event
 }
+
+func (v *vClock) get() (string, map[string]EventClock) {
+	return v.self, v.vectorClock
+}
+
 type peerClock map[string]*int
 
-func (p peerClock) add(peer string) {
+func (p peerClock) add(peer string) bool {
 	if p.get(peer) == -1 {
 		p[peer] = new(int)
 		*p[peer] = 0
+		return true
 	}
+	return false
 }
 func (p peerClock) update(peer string) {
-	p.add(peer)
-	p.updateTo(peer, p.get(peer)+1)
+	if p.add(peer) {
+		p.updateTo(peer, p.get(peer)+1)
+	}
 }
 func (p peerClock) get(peer string) int {
 	if p[peer] == nil {
@@ -70,18 +79,20 @@ func (v *vClock) print() {
 
 // Get returns the current vector clock
 func (v *vClock) Get(eventIdOrHash string) EventClock {
+	v.lock.Lock()
+	defer v.lock.Unlock()
 	return v.vectorClock[eventIdOrHash]
 }
 
 // SendEvent returns the current vector clock after updating the individual clocks for these entries
 func (v *vClock) SendEvent(eventIdOrHash string, address []string) EventClock {
 	v.lock.Lock()
-	defer v.lock.Unlock()
 	// update the individual clock entry for self
 	v.event(eventIdOrHash, v.self)
 	for _, a := range address {
 		v.event(eventIdOrHash, a)
 	}
+	v.lock.Unlock()
 	return v.Get(eventIdOrHash)
 }
 
@@ -144,4 +155,17 @@ func Init(self string) VectorClock {
 		self:        self,
 	}
 	return &v
+}
+
+func Copy(v VectorClock) VectorClock {
+	self, clocks := v.get()
+	var copy = make(map[string]EventClock)
+	for id, clock := range clocks {
+		copy[id] = clock
+	}
+	return &vClock{
+		lock:        sync.Mutex{},
+		vectorClock: copy,
+		self:        self,
+	}
 }

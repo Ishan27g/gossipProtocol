@@ -4,22 +4,6 @@ github.com/Ishan27g/go-utils/mLogger
 # github.com/Ishan27gOrg/vClock v0.0.0-00010101000000-000000000000 => ../vClock
 ## explicit; go 1.17
 github.com/Ishan27gOrg/vClock
-# github.com/cloudevents/sdk-go/v2 v2.6.0
-## explicit; go 1.14
-github.com/cloudevents/sdk-go/v2
-github.com/cloudevents/sdk-go/v2/binding
-github.com/cloudevents/sdk-go/v2/binding/format
-github.com/cloudevents/sdk-go/v2/binding/spec
-github.com/cloudevents/sdk-go/v2/client
-github.com/cloudevents/sdk-go/v2/context
-github.com/cloudevents/sdk-go/v2/event
-github.com/cloudevents/sdk-go/v2/event/datacodec
-github.com/cloudevents/sdk-go/v2/event/datacodec/json
-github.com/cloudevents/sdk-go/v2/event/datacodec/text
-github.com/cloudevents/sdk-go/v2/event/datacodec/xml
-github.com/cloudevents/sdk-go/v2/protocol
-github.com/cloudevents/sdk-go/v2/protocol/http
-github.com/cloudevents/sdk-go/v2/types
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
 github.com/davecgh/go-spew/spew
@@ -33,53 +17,36 @@ github.com/emirpasic/gods/utils
 # github.com/fatih/color v1.7.0
 ## explicit
 github.com/fatih/color
-# github.com/google/uuid v1.1.1
+# github.com/go-playground/assert v1.2.1
 ## explicit
-github.com/google/uuid
+github.com/go-playground/assert
 # github.com/hashicorp/go-hclog v1.0.0
 ## explicit; go 1.13
 github.com/hashicorp/go-hclog
 # github.com/iancoleman/orderedmap v0.2.0
 ## explicit
 github.com/iancoleman/orderedmap
-# github.com/json-iterator/go v1.1.10
-## explicit; go 1.12
-github.com/json-iterator/go
+# github.com/kr/text v0.2.0
+## explicit
 # github.com/mattn/go-colorable v0.1.4
 ## explicit
 github.com/mattn/go-colorable
 # github.com/mattn/go-isatty v0.0.10
 ## explicit; go 1.14
 github.com/mattn/go-isatty
-# github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421
-## explicit
-github.com/modern-go/concurrent
-# github.com/modern-go/reflect2 v0.0.0-20180701023420-4b7aa43c6742
-## explicit
-github.com/modern-go/reflect2
+# github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
+## explicit; go 1.12
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
 github.com/pmezard/go-difflib/difflib
 # github.com/stretchr/testify v1.7.0
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
-# go.uber.org/atomic v1.4.0
-## explicit
-go.uber.org/atomic
-# go.uber.org/multierr v1.1.0
-## explicit
-go.uber.org/multierr
-# go.uber.org/zap v1.10.0
-## explicit
-go.uber.org/zap
-go.uber.org/zap/buffer
-go.uber.org/zap/internal/bufferpool
-go.uber.org/zap/internal/color
-go.uber.org/zap/internal/exit
-go.uber.org/zap/zapcore
 # golang.org/x/sys v0.0.0-20191008105621-543471e840be
 ## explicit; go 1.12
 golang.org/x/sys/unix
+# gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
+## explicit
 # gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 ## explicit
 gopkg.in/yaml.v3

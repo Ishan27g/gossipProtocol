@@ -1,7 +1,7 @@
 clean:
 	rm gossiper
 build:
-	go build -o example example.go
+	go build -o main main.go
 run:
 	./example
 runClean:

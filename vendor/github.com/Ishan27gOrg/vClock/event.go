@@ -1,9 +1,6 @@
 package vClock
 
 import (
-	"encoding/json"
-
-	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/emirpasic/gods/lists/arraylist"
 	"github.com/iancoleman/orderedmap"
 )
@@ -21,30 +18,6 @@ type Events interface {
 	GetCurrentEvents() []Event
 	// GetEventsOrder returns the eventIds ordered according to vector clock for the events
 	GetEventsOrder() (orderedEvents []Event)
-}
-
-func cloudEvent(id string, data EventClock) cloudevents.Event {
-	return convertToCloud(Event{
-		EventId:    id,
-		EventClock: data,
-	})
-}
-
-func convertToLocal(c cloudevents.Event) Event {
-	var e Event
-	_ = json.Unmarshal(c.DataEncoded, &e.EventClock)
-	e.EventId = c.ID()
-	return e
-}
-func convertToCloud(e Event) cloudevents.Event {
-	c := cloudevents.NewEvent()
-	c.SetID(e.EventId)
-	c.SetSource("oko	k")
-	err := c.SetData(cloudevents.ApplicationJSON, e.EventClock)
-	if err != nil {
-		return cloudevents.Event{}
-	}
-	return c
 }
 
 // Event contains value for eventClocks tree

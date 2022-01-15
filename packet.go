@@ -14,6 +14,17 @@ type Packet struct {
 	VectorClock   vClock.EventClock
 }
 
+type udpGossip struct {
+	Packet Packet
+	From   Peer
+}
+
+func packetToUdp(packet Packet, from Peer) udpGossip {
+	return udpGossip{
+		Packet: packet, From: from,
+	}
+}
+
 type gossipMessage struct {
 	Data              string
 	CreatedAt         time.Time
@@ -31,8 +42,10 @@ func (p *Packet) GetData() string {
 	return p.GossipMessage.Data
 }
 
-func gossipToByte(g gossipMessage, from string, clock vClock.EventClock) []byte {
-	b, _ := json.Marshal(gossipToPacket(g, from, clock))
+func gossipToByte(g gossipMessage, from Peer, clock vClock.EventClock) []byte {
+	packet := gossipToPacket(g, from.ProcessIdentifier, clock)
+	udp := packetToUdp(*packet, from)
+	b, _ := json.Marshal(&udp)
 	return b
 }
 
@@ -43,14 +56,21 @@ func gossipToPacket(g gossipMessage, from string, clock vClock.EventClock) *Pack
 		VectorClock:   clock,
 	}
 }
-func ByteToPacket(b []byte) Packet {
-	g := Packet{
-		AvailableAt:   []string{},
-		GossipMessage: gossipMessage{},
-		VectorClock:   vClock.EventClock{},
+func ByteToPacket(b []byte) (Packet, Peer) {
+	udp := udpGossip{
+		Packet: Packet{
+			AvailableAt:   []string{},
+			GossipMessage: gossipMessage{},
+			VectorClock:   vClock.EventClock{},
+		},
+		From: Peer{
+			UdpAddress:        "",
+			ProcessIdentifier: "",
+			Hop:               -1,
+		},
 	}
-	_ = json.Unmarshal(b, &g)
-	return g
+	_ = json.Unmarshal(b, &udp)
+	return udp.Packet, udp.From
 }
 
 // NewGossipMessage creates a Gossip message with current timestamp,
@@ -62,6 +82,6 @@ func NewGossipMessage(data string, from string, clock vClock.EventClock) Packet 
 		GossipMessageHash: "",
 		Version:           0,
 	}
-	g.GossipMessageHash = defaultHashMethod(g)
+	g.GossipMessageHash = defaultHashMethod(g.Data + g.CreatedAt.GoString())
 	return *gossipToPacket(g, from, clock)
 }

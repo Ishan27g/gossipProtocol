@@ -6,117 +6,64 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Ishan27gOrg/gossipProtocol/sampling"
 	"github.com/stretchr/testify/assert"
 )
 
-const TestData = "hello"
-
-var hostname = "localhost"
-var network = []string{"1001", "1002", "1003", "1004"}
-var peers = []sampling.Peer{
-	{"localhost:" + network[0], "p1"},
-	{"localhost:" + network[1], "p2"},
-	{"localhost:" + network[2], "p3"},
-	{"localhost:" + network[3], "p4"},
+type gArgs struct {
+	self         Peer
+	initialPeers []Peer
+	gossip       Gossip
+	rcvGossip    <-chan Packet
 }
 
-func setupGossip(index int, hostname string, udp string) Gossip {
-	options := Options{
-		Env(hostname, udp, peers[index].ProcessIdentifier),
-		Logger(false),
-		Strategy(sampling.Random, sampling.Push, sampling.Random),
+func setupGossipProcesses(base string, numProcesses int) []gArgs {
+	var processes []gArgs
+	for i := 0; i < numProcesses; i++ {
+		self := network(base, -1, numProcesses)[i] // all peers, this index
+		peers := network(base, i, numProcesses)    // all peers except this index
+		time.Sleep(100 * time.Millisecond)
+		gossip, rcvGossip := Config("localhost", self.UdpAddress, self.ProcessIdentifier)
+		gossip.Join(peers...)
+		processes = append(processes, gArgs{
+			self:         self,
+			initialPeers: peers,
+			gossip:       gossip,
+			rcvGossip:    rcvGossip,
+		})
 	}
-	g := Apply(options).New()
-	return g
+	return processes
 }
-
-func receiveOnChannel(t *testing.T, wg *sync.WaitGroup, index int, g *Gossip) {
-	go func(g Gossip, wg *sync.WaitGroup) {
-		defer wg.Done()
-		for {
-			packet := <-g.ReceiveGossip()
-			fmt.Printf("At [%d] received gossip %v\n", index, packet)
-			p, vc := g.RemovePacket(packet.GetId())
-			assert.NotNil(t, vc)
-			assert.NotNil(t, *p)
-			assert.Equal(t, TestData, p.GossipMessage.Data)
-			return
-		}
-	}(*g, wg)
+func matchGossip(wg *sync.WaitGroup, r <-chan Packet, data string) bool {
+	defer wg.Done()
+	g := <-r
+	return g.GetData() == data
 }
-func setupWithoutSampling(index int, g *Gossip) {
-	newGossipEvent := make(chan Packet)
-	(*g).JoinWithoutSampling(func() []sampling.Peer {
-		var p []sampling.Peer
-		for i := 0; i < len(peers); i++ {
-			if i != index {
-				p = append(p, peers[i])
-			}
-		}
-		return p
-	}, newGossipEvent) // across zones
-}
-
-func setupWithSampling(index int, g *Gossip) {
-	newGossipEvent := make(chan Packet)
-	(*g).JoinWithSampling(peers, newGossipEvent)
-}
-
-func Test_Gossip_WithoutSampling(t *testing.T) {
-	var wg sync.WaitGroup
-	var peers []Gossip
-	for i := len(network) - 1; i >= 1; i-- {
-		g := setupGossip(i, hostname, network[i])
-		setupWithoutSampling(i, &g)
-
-		wg.Add(1)
-		receiveOnChannel(t, &wg, i, &g)
-		peers = append(peers, g)
-	}
-	<-time.After(3 * time.Second)
-	g := setupGossip(0, hostname, network[0])
-	setupWithoutSampling(0, &g)
-
-	wg.Add(1)
-	receiveOnChannel(t, &wg, 0, &g)
-	peers = append(peers, g)
+func Test_Gossip(t *testing.T) {
+	t.Parallel()
+	var data = "some data"
+	var numProcesses = 10
+	processes := setupGossipProcesses("90", numProcesses)
+	fmt.Println(processes)
+	processes[0].gossip.SendGossip(data)
 
 	<-time.After(1 * time.Second)
-
-	g.StartRumour(TestData)
-	wg.Wait()
-	for _, p := range peers {
-		p.Stop()
-	}
-
-}
-
-func Test_Gossip_WithSampling(t *testing.T) {
 	var wg sync.WaitGroup
-	var peers []Gossip
-
-	for i := len(network) - 1; i >= 1; i-- {
-		g := setupGossip(i, hostname, network[i])
-		setupWithSampling(i, &g)
-
+	for _, p := range processes {
 		wg.Add(1)
-		receiveOnChannel(t, &wg, i, &g)
-		peers = append(peers, g)
+		go func(p gArgs) {
+			assert.True(t, matchGossip(&wg, p.rcvGossip, data))
+		}(p)
 	}
-	<-time.After(3 * time.Second)
-	g := setupGossip(0, hostname, network[0])
-	setupWithSampling(0, &g)
 
-	wg.Add(1)
-	receiveOnChannel(t, &wg, 0, &g)
-	peers = append(peers, g)
-
+	processes[numProcesses-1].gossip.SendGossip(data + data)
 	<-time.After(1 * time.Second)
-	g.StartRumour(TestData)
+
+	for _, p := range processes {
+		wg.Add(1)
+		go func(p gArgs) {
+			assert.True(t, matchGossip(&wg, p.rcvGossip, data+data))
+		}(p)
+	}
 	wg.Wait()
 
-	for _, p := range peers {
-		p.Stop()
-	}
 }
