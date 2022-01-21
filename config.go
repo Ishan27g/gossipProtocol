@@ -15,7 +15,7 @@ var defaultStrategy = PeerSamplingStrategy{
 	ViewSelectionStrategy:   Random,
 }
 
-const gossipDelay = 100 * time.Millisecond
+const gossipDelay = 10 * time.Millisecond
 const rounds = 1
 const fanOut = 5
 

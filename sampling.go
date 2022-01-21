@@ -62,8 +62,10 @@ func (s *sampling) fillView(peers ...Peer) {
 }
 
 func (s *sampling) addPeerToView(peer Peer) {
-	s.view.add(peer)
-	s.knownPeers[peer.ProcessIdentifier] = peer
+	if s.knownPeers[peer.ProcessIdentifier].ProcessIdentifier == "" {
+		s.view.add(peer)
+		s.knownPeers[peer.ProcessIdentifier] = peer
+	}
 }
 
 func (s *sampling) removePeer(peer Peer) {

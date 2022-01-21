@@ -62,6 +62,15 @@ func Test_Gossip(t *testing.T) {
 			assert.True(t, matchGossip(&wg, p.rcvGossip, data+data))
 		}(p)
 	}
+	processes[4].gossip.SendGossip(data + data + data)
+	<-time.After(1 * time.Second)
+
+	for _, p := range processes {
+		wg.Add(1)
+		go func(p gArgs) {
+			assert.True(t, matchGossip(&wg, p.rcvGossip, data+data+data))
+		}(p)
+	}
 	wg.Wait()
 
 }
