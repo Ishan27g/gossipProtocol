@@ -166,7 +166,7 @@ func Config(hostname string, port string, id string) (Gossip, <-chan Packet) {
 		allGossip:    make(map[string]*Packet),
 		allEvents:    new(vClock.VectorClock),
 		gossipToUser: make(chan Packet, 100),
-		sampling:     initSampling(hostname, id, defaultStrategy),
+		sampling:     initSampling(port, id, defaultStrategy),
 		//sentToPeers:  []Peer{},
 	}
 	*g.allEvents = vClock.Init(id)
