@@ -28,7 +28,7 @@ func packetToUdp(packet Packet, from Peer) udpGossip {
 
 type gossipMessage struct {
 	Data              string
-	CreatedAt         time.Time
+	CreatedAt         time.Time // unused
 	GossipMessageHash string
 	Version           int
 }

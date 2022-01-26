@@ -63,12 +63,12 @@ func (u *udpClient) send(address string, data []byte) []byte {
 		return nil
 	}
 	buffer = buffer[:readLen]
-	u.logger.Trace("Received gossip response from - " + c.RemoteAddr().String())
+	u.logger.Trace("Received startRounds response from - " + c.RemoteAddr().String())
 	return buffer
 }
 
-// Listen starts the udp server that listens for an incoming view or gossip from peers.
-// Responds with the current view / gossip as per strategy.
+// Listen starts the udp server that listens for an incoming view or startRounds from peers.
+// Responds with the current view / startRounds as per strategy.
 func Listen(ctx context.Context, port string, gossipCb func(Packet, Peer) []byte, viewCb func(View, Peer) []byte) {
 	s, err := net.ResolveUDPAddr("udp4", port)
 	if err != nil {
@@ -98,26 +98,17 @@ func Listen(ctx context.Context, port string, gossipCb func(Packet, Peer) []byte
 		buffer = buffer[:readLen]
 		view, from, err := BytesToView(buffer)
 		if from.UdpAddress != "" && err == nil {
-			// fmt.Println("udpServer received view " + " from: " + from.ProcessIdentifier)
-			// fmt.Println(PrintView(view))
 			rsp := viewCb(view, from)
-			//fmt.Println("udpServer sending view response to: " + from.ProcessIdentifier)
 			_, err = connection.WriteToUDP(rsp, addr)
 			if err != nil {
 				fmt.Println("WriteToUDP", err.Error())
-			} // else {
-			// 	fmt.Println("udpServer sent view response to: " + from.ProcessIdentifier)
-			// }
+			}
 		} else {
-			// fmt.Println("udpServer received gossip " + " from: " + from.ProcessIdentifier)
 			rsp := gossipCb(ByteToPacket(buffer))
-			// fmt.Println("udpServer sending gossip response to: " + from.ProcessIdentifier)
 			_, err = connection.WriteToUDP(rsp, addr)
 			if err != nil {
 				fmt.Println(err.Error())
-			} // else {
-			// fmt.Println("udpServer sent gossip response to: " + from.ProcessIdentifier)
-			// }
+			}
 		}
 	}
 }

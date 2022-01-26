@@ -69,12 +69,8 @@ func (s *sampling) addPeerToView(peer Peer) {
 }
 
 func (s *sampling) removePeer(peer Peer) {
-	// s.lock.Lock()
-	// defer s.lock.Unlock()
 	s.view.remove(peer)
 	delete(s.knownPeers, peer.ProcessIdentifier)
-	// println(s.selfDescriptor.ProcessIdentifier, " - Removed peer from view - ", peer.ProcessIdentifier)
-	// println(s.selfDescriptor.ProcessIdentifier, PrintView(s.view))
 }
 func (s *sampling) selectView(view *View) {
 	switch s.strategy.ViewSelectionStrategy {
@@ -130,7 +126,6 @@ func (s *sampling) passive() {
 					s.selectView(&mergedView)
 				}
 			}
-			//println(s.selfDescriptor.ProcessIdentifier, "END - ", PrintView(s.view))
 		}
 	}
 }
@@ -145,7 +140,6 @@ func (s *sampling) ViewFromPeer(receivedView View, peer Peer) []byte {
 	}
 	merged := mergeViewExcludeNode(s.view, receivedView, s.selfDescriptor)
 	s.selectView(&merged)
-	// println("After receiving view, current view is - ", PrintView(s.view))
 	return rsp // empty incase of PUSH
 }
 
@@ -156,11 +150,8 @@ func (s *sampling) AddPeer(peer ...Peer) {
 	s.selectView(&s.view)
 }
 
-// getPeer returns a peer from the current view except self
+// GetPeer returns a peer from the current view except self
 func (s *sampling) GetPeer(exclude Peer) Peer {
-	// if s.view.Nodes.Size() <= 1 { // only self in view
-	// 	return Peer{}
-	// }
 	rand.Seed(rand.Int63n(100000))
 
 	node := Peer{}

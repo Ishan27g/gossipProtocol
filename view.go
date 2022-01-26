@@ -46,8 +46,6 @@ func (v *View) remove(peer Peer) *View {
 	exists, _, index := v.checkExists(peer.UdpAddress)
 	if exists && index != -1 {
 		v.Nodes.Remove(index)
-	} else {
-		println("DOESD NOT EXIST?????")
 	}
 	return v
 }

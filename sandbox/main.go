@@ -55,7 +55,7 @@ func main() {
 			fmt.Println("Enter Data -\n\t$ ")
 			text, _ := reader.ReadString('\n')
 			text = strings.Replace(text, "\n", "", -1) // convert CRLF to LF
-			println(g.CurrentView())
+			// println(g.CurrentView())
 			g.SendGossip(text)
 		}
 	}

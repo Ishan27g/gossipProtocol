@@ -19,15 +19,12 @@ const gossipDelay = 10 * time.Millisecond
 const rounds = 1
 const fanOut = 5
 
-// const minimumPeersInNetwork = 10 // todo
-
 type envConfig struct {
 	Hostname          string `env:"HOST_NAME"`
 	UdpPort           string `env:"UDP_PORT,required"`
 	ProcessIdentifier string
 	RoundDelay        time.Duration // timeout between each round for a gossipMessage
-	FanOut            int           // num of peers to gossip a message to
-	// MinimumPeersInNetwork int           // number of rounds a message is gossiped = log(minPeers/FanOut)
+	FanOut            int           // num of peers to startRounds a message to
 }
 
 func defaultEnv(hostname string, port string, id string) *envConfig {
@@ -37,7 +34,6 @@ func defaultEnv(hostname string, port string, id string) *envConfig {
 		ProcessIdentifier: id,
 		RoundDelay:        gossipDelay,
 		FanOut:            fanOut,
-		// MinimumPeersInNetwork: minimumPeersInNetwork,
 	}
 }
 
