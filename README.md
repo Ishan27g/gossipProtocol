@@ -7,6 +7,7 @@ Gossip based communication with partial network views & peer-sampling
  - View-selection
  - View-propagation
  - Peer-selection 
+ 
  These strategies allow for the construction and maintenance of various dynamic unstructured overlays through gossiping membership information
    (http://lpdwww.epfl.ch/upload/documents/publications/neg--1184036295all.pdf)
 
