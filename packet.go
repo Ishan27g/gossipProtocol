@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Ishan27gOrg/vClock"
+	"github.com/Ishan27g/vClock"
 )
 
 // Packet exchanged between peers
