@@ -22,7 +22,7 @@ var network = func(base string, exclude int, numProcesses int) []Peer {
 		}
 		ports = append(ports, Peer{
 			UdpAddress:        s,
-			ProcessIdentifier: "PID-" + strconv.Itoa(i),
+			ProcessIdentifier: "Pid-" + strconv.Itoa(i),
 		})
 	}
 	return ports
