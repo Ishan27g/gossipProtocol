@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Ishan27gOrg/vClock"
+	"github.com/Ishan27g/vClock"
 )
 
 type Gossip interface {

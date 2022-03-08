@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/Ishan27gOrg/gossipProtocol"
+	"github.com/Ishan27g/gossipProtocol"
 )
 
 func main() {
