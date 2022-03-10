@@ -2,7 +2,9 @@ package gossipProtocol
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -71,6 +73,7 @@ func matchGossip(wg *sync.WaitGroup, r <-chan Packet, data string) bool {
 	g := <-r
 	return g.GetData() == data
 }
+
 func Test_Gossip(t *testing.T) {
 	t.Parallel()
 
@@ -120,4 +123,31 @@ func Test_Gossip(t *testing.T) {
 			p.printView()
 		}
 	})
+}
+
+func Test_Bulk_Gossip(t *testing.T) {
+	t.Parallel()
+
+	var numProcesses = 5
+	var numMessages = 300
+
+	rand.Seed(time.Now().UnixMicro())
+	processes := setupGossipProcesses("10", numProcesses)
+	for i := 0; i < numMessages; i++ {
+		var wg sync.WaitGroup
+		var data = "data" + strconv.Itoa(i)
+		r := rand.Intn(len(processes))
+		processes[r].gossip.SendGossip(data)
+		<-time.After(25 * time.Millisecond)
+		for _, p := range processes {
+			wg.Add(1)
+			go func(p gArgs, data string) {
+				if !matchGossip(&wg, p.rcvGossip, data) {
+					t.Error("mismatch")
+				}
+			}(p, data)
+		}
+		wg.Wait()
+		fmt.Println(i)
+	}
 }
