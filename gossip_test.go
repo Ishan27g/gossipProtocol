@@ -131,7 +131,7 @@ func Test_Bulk_Gossip(t *testing.T) {
 	var numProcesses = 5
 	var numMessages = 300
 
-	rand.Seed(time.Now().UnixMicro())
+	rand.Seed(time.Now().Unix())
 	processes := setupGossipProcesses("10", numProcesses)
 	for i := 0; i < numMessages; i++ {
 		var wg sync.WaitGroup
