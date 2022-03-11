@@ -80,7 +80,7 @@ func Test_Gossip(t *testing.T) {
 	var data = "some data"
 	var numProcesses = 25
 
-	processes := setupGossipProcesses("90", numProcesses)
+	processes := setupGossipProcesses("40", numProcesses)
 
 	t.Run("Gossip protocol", func(t *testing.T) {
 		var wg sync.WaitGroup
