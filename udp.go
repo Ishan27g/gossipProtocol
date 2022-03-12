@@ -84,7 +84,7 @@ func Listen(ctx context.Context, port string, gossipCb func(Packet, Peer) []byte
 		<-ctx.Done()
 		connection.Close()
 	}()
-	fmt.Println("Started on ", port)
+	fmt.Println("Started gossip on:", port)
 	for {
 		buffer := make([]byte, 4096)
 		readLen, addr, e := connection.ReadFromUDP(buffer)

@@ -1,6 +1,7 @@
 module github.com/Ishan27g/gossipProtocol
 
 go 1.17
+
 require (
 	github.com/Ishan27g/go-utils/mLogger v0.0.0-20220308132511-ad5f5c0e8f14
 	github.com/Ishan27g/vClock v0.0.0-20220221133617-fae27884de39

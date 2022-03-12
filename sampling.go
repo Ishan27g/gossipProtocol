@@ -98,7 +98,8 @@ func (s *sampling) passive() {
 			if nwPeer.UdpAddress == "" {
 				continue
 			}
-			if s.strategy.ViewPropagationStrategy == Push || s.strategy.ViewPropagationStrategy == PushPull {
+			switch s.strategy.ViewPropagationStrategy {
+			case Push, PushPull:
 				mergedView := MergeView(s.view, selfDescriptor(s.selfDescriptor))
 				buffer := ViewToBytes(mergedView, s.knownPeers[s.selfDescriptor.ProcessIdentifier])
 				rspView, from, err := BytesToView(s.udpClient.send(nwPeer.UdpAddress, buffer))
@@ -108,7 +109,7 @@ func (s *sampling) passive() {
 				} else {
 					s.removePeer(nwPeer)
 				}
-			} else {
+			default:
 				// send emptyView to nwPeer to trigger response
 				rspView, from, err := BytesToView(s.udpClient.send(nwPeer.UdpAddress,
 					ViewToBytes(View{Nodes: sll.New()}, s.knownPeers[s.selfDescriptor.ProcessIdentifier])))
@@ -119,7 +120,8 @@ func (s *sampling) passive() {
 					s.removePeer(nwPeer)
 				}
 			}
-			if s.strategy.ViewPropagationStrategy == Pull || s.strategy.ViewPropagationStrategy == PushPull {
+			switch s.strategy.ViewPropagationStrategy {
+			case PushPull, Pull:
 				if receivedView.Nodes != nil {
 					increaseHopCount(receivedView)
 					mergedView := mergeViewExcludeNode(s.view, *receivedView, s.selfDescriptor)
@@ -138,6 +140,7 @@ func (s *sampling) ViewFromPeer(receivedView View, peer Peer) []byte {
 		mergedView := MergeView(s.view, selfDescriptor(s.selfDescriptor))
 		rsp = ViewToBytes(mergedView, s.knownPeers[s.selfDescriptor.ProcessIdentifier])
 	}
+
 	merged := mergeViewExcludeNode(s.view, receivedView, s.selfDescriptor)
 	s.selectView(&merged)
 	return rsp // empty incase of PUSH

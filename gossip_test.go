@@ -66,6 +66,7 @@ func setupGossipProcesses(base string, numProcesses int) []gArgs {
 	for p := range processes {
 		pro = append(pro, p)
 	}
+	<-time.After(2 * time.Second)
 	return pro
 }
 func matchGossip(wg *sync.WaitGroup, r <-chan Packet, data string) bool {
@@ -75,44 +76,43 @@ func matchGossip(wg *sync.WaitGroup, r <-chan Packet, data string) bool {
 }
 
 func Test_Gossip(t *testing.T) {
-	t.Parallel()
 
 	var data = "some data"
-	var numProcesses = 25
+	var numProcesses = 5
 
 	processes := setupGossipProcesses("40", numProcesses)
 
-	t.Run("Gossip protocol", func(t *testing.T) {
-		var wg sync.WaitGroup
+	t.Parallel()
 
-		processes[0].gossip.SendGossip(data)
-		<-time.After(1 * time.Second)
-		for _, p := range processes {
-			wg.Add(1)
-			go func(p gArgs) {
-				assert.True(t, matchGossip(&wg, p.rcvGossip, data))
-			}(p)
-		}
+	var wg sync.WaitGroup
 
-		processes[numProcesses-1].gossip.SendGossip(data + data)
-		<-time.After(1 * time.Second)
-		for _, p := range processes {
-			wg.Add(1)
-			go func(p gArgs) {
-				assert.True(t, matchGossip(&wg, p.rcvGossip, data+data))
-			}(p)
-		}
+	processes[0].gossip.SendGossip(data)
+	<-time.After(1 * time.Second)
+	for _, p := range processes {
+		wg.Add(1)
+		go func(p gArgs) {
+			assert.True(t, matchGossip(&wg, p.rcvGossip, data))
+		}(p)
+	}
 
-		processes[4].gossip.SendGossip(data + data + data)
-		<-time.After(1 * time.Second)
-		for _, p := range processes {
-			wg.Add(1)
-			go func(p gArgs) {
-				assert.True(t, matchGossip(&wg, p.rcvGossip, data+data+data))
-			}(p)
-		}
-		wg.Wait()
-	})
+	processes[numProcesses-1].gossip.SendGossip(data + data)
+	<-time.After(1 * time.Second)
+	for _, p := range processes {
+		wg.Add(1)
+		go func(p gArgs) {
+			assert.True(t, matchGossip(&wg, p.rcvGossip, data+data))
+		}(p)
+	}
+
+	processes[4].gossip.SendGossip(data + data + data)
+	<-time.After(1 * time.Second)
+	for _, p := range processes {
+		wg.Add(1)
+		go func(p gArgs) {
+			assert.True(t, matchGossip(&wg, p.rcvGossip, data+data+data))
+		}(p)
+	}
+	wg.Wait()
 	t.Cleanup(func() {
 		<-time.After(ViewExchangeDelay * 2)
 		for _, p := range processes {
@@ -126,19 +126,20 @@ func Test_Gossip(t *testing.T) {
 }
 
 func Test_Bulk_Gossip(t *testing.T) {
+
 	t.Parallel()
 
-	var numProcesses = 5
+	var numProcesses = 10
 	var numMessages = 300
 
-	rand.Seed(time.Now().Unix())
 	processes := setupGossipProcesses("10", numProcesses)
 	for i := 0; i < numMessages; i++ {
+		rand.Seed(time.Now().Unix())
 		var wg sync.WaitGroup
 		var data = "data" + strconv.Itoa(i)
 		r := rand.Intn(len(processes))
 		processes[r].gossip.SendGossip(data)
-		<-time.After(25 * time.Millisecond)
+		<-time.After(125 * time.Millisecond)
 		for _, p := range processes {
 			wg.Add(1)
 			go func(p gArgs, data string) {
@@ -150,4 +151,5 @@ func Test_Bulk_Gossip(t *testing.T) {
 		wg.Wait()
 		fmt.Println(i)
 	}
+
 }
