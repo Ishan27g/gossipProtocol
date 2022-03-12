@@ -60,7 +60,9 @@ func (g *gossip) SendGossip(data string) {
 
 // from peer
 func (g *gossip) serverCb(gP Packet, from Peer) []byte {
+        
 	g.lock.Lock()
+g.Add(from)
 	newPacket := g.savePacket(&gP)
 	(*g.allEvents).ReceiveEvent(gP.GetId(), gP.VectorClock)
 	g.lock.Unlock()
