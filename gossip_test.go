@@ -127,9 +127,7 @@ func Test_Gossip(t *testing.T) {
 
 func Test_Bulk_Gossip(t *testing.T) {
 
-	t.Parallel()
-
-	var numProcesses = 10
+	var numProcesses = 5
 	var numMessages = 300
 
 	processes := setupGossipProcesses("10", numProcesses)
