@@ -148,7 +148,9 @@ func (s *sampling) ViewFromPeer(receivedView View, peer Peer) []byte {
 
 func (s *sampling) AddPeer(peer ...Peer) {
 	for _, p := range peer {
+		//	if p.ProcessIdentifier != s.selfDescriptor.ProcessIdentifier {
 		s.addPeerToView(p)
+		//	}
 	}
 	s.selectView(&s.view)
 }

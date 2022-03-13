@@ -40,7 +40,7 @@ func (g *gArgs) printView() {
 
 	fmt.Println()
 }
-func setupGossipProcesses(base string, numProcesses int) []gArgs {
+func setupGossipProcesses(base string, numProcesses int, withPeers bool) []gArgs {
 	var processes = make(chan gArgs, numProcesses)
 	var wg sync.WaitGroup
 
@@ -48,10 +48,13 @@ func setupGossipProcesses(base string, numProcesses int) []gArgs {
 		wg.Add(1)
 		go func(wg *sync.WaitGroup, processes chan gArgs, i int) {
 			defer wg.Done()
+			var peers []Peer
 			self := network(base, -1, numProcesses)[i] // all peers, this index
-			peers := network(base, i, numProcesses)    // all peers except this index
+			peers = network(base, i, numProcesses)     // all peers except this index
 			gossip, rcvGossip := Config("localhost", self.UdpAddress, self.ProcessIdentifier)
-			gossip.Join(peers...)
+			if withPeers {
+				gossip.Join(peers...)
+			}
 			processes <- gArgs{
 				self:         self,
 				initialPeers: peers,
@@ -74,13 +77,42 @@ func matchGossip(wg *sync.WaitGroup, r <-chan Packet, data string) bool {
 	g := <-r
 	return g.GetData() == data
 }
+func Test_Peer_Join(t *testing.T) {
+	var numProcesses = 4
+	processes := setupGossipProcesses("30", numProcesses, false)
+	for _, p := range processes {
+		p.gossip.Add(p.initialPeers...)
+		assert.Equal(t, numProcesses-1, len(p.gossip.CurrentView()))
+	}
+}
+func Test_Peer_Gossip(t *testing.T) {
+	var numProcesses = 2
+	processes := setupGossipProcesses("30", numProcesses, false)
 
+	<-time.After(2 * time.Second)
+	for _, p := range processes {
+		p.gossip.Add(p.initialPeers...)
+		assert.Equal(t, numProcesses-1, len(p.gossip.CurrentView()))
+	}
+
+	var wg sync.WaitGroup
+	for i, p := range processes {
+		var data = "some data" + strconv.Itoa(i)
+		p.gossip.SendGossip(data)
+		wg.Add(1)
+		go func(p gArgs, data string) {
+			<-time.After(5 * time.Second)
+			assert.True(t, matchGossip(&wg, p.rcvGossip, data))
+		}(p, data)
+	}
+	wg.Wait()
+}
 func Test_Gossip(t *testing.T) {
 
 	var data = "some data"
 	var numProcesses = 5
 
-	processes := setupGossipProcesses("40", numProcesses)
+	processes := setupGossipProcesses("40", numProcesses, true)
 
 	t.Parallel()
 
@@ -130,10 +162,11 @@ func Test_Bulk_Gossip(t *testing.T) {
 	var numProcesses = 5
 	var numMessages = 300
 
-	processes := setupGossipProcesses("10", numProcesses)
+	processes := setupGossipProcesses("10", numProcesses, true)
+	var wg sync.WaitGroup
+
 	for i := 0; i < numMessages; i++ {
 		rand.Seed(time.Now().Unix())
-		var wg sync.WaitGroup
 		var data = "data" + strconv.Itoa(i)
 		r := rand.Intn(len(processes))
 		processes[r].gossip.SendGossip(data)
@@ -146,8 +179,7 @@ func Test_Bulk_Gossip(t *testing.T) {
 				}
 			}(p, data)
 		}
-		wg.Wait()
 		fmt.Println(i)
 	}
-
+	wg.Wait()
 }
