@@ -8,11 +8,6 @@ import (
 	sll "github.com/emirpasic/gods/lists/singlylinkedlist"
 )
 
-const (
-	ViewExchangeDelay = 3 * time.Second // timeout after which a View  is exchanged with a peer
-	MaxNodesInView    = 6               // max peers kept in local View TODO MaxNodesInView=6
-)
-
 type iSampling interface {
 	SetInitialPeers(...Peer)
 	Start()
