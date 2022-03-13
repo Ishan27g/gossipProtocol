@@ -7,8 +7,9 @@ require (
 	github.com/Ishan27g/vClock v0.0.0-20220221133617-fae27884de39
 	github.com/emirpasic/gods v1.12.0
 	github.com/go-playground/assert v1.2.1
-	github.com/hashicorp/go-hclog v1.1.0
+	github.com/hashicorp/go-hclog v1.2.0
 	github.com/jedib0t/go-pretty/v6 v6.2.7
+	github.com/orcaman/concurrent-map v1.0.0
 	github.com/stretchr/testify v1.7.0
 )
 
