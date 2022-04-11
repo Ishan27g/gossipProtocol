@@ -3,13 +3,13 @@
 
 Gossip based communication with partial network views & peer-sampling 
 
-#### Various [strategies](http://lpdwww.epfl.ch/upload/documents/publications/neg--1184036295all.pdf) for maintaining a partial view of the network.
+#### Various [strategies](https://web.archive.org/web/20170809095111/http://lpdwww.epfl.ch/upload/documents/publications/neg--1184036295all.pdf) for maintaining a partial view of the network.
  - View-selection
  - View-propagation
  - Peer-selection 
  
  These strategies allow for the construction and maintenance of various dynamic unstructured overlays through gossiping membership information
-   (http://lpdwww.epfl.ch/upload/documents/publications/neg--1184036295all.pdf)
+   (https://web.archive.org/web/20170809095111/http://lpdwww.epfl.ch/upload/documents/publications/neg--1184036295all.pdf)
 
 #### Partial ordering of events
   - Each `Peer` maintains a vector clock relative to its partial view
